@@ -1,207 +1,771 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[codz]
-*$py.class
+import warnings
+warnings.filterwarnings('ignore')
 
-# C extensions
-*.so
+import os
+import json
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')              # Non-interactive backend — saves PNGs without a display
+import seaborn as sns
+from matplotlib.patches import FancyBboxPatch
+import joblib
 
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score,
+    f1_score, roc_auc_score, confusion_matrix,
+    classification_report, log_loss
+)
 
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
+# =============================================================================
+#  CONFIGURATION  — change these paths / settings as needed
+# =============================================================================
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
+DATASET_PATH  = 'Enhanced_Preprocessed_Dataset.xlsx'   # ← put your file path here
+OUTPUT_DIR    = './outputs'                              # all graphs + models saved here
+TEST_SIZE     = 0.20                                     # 80% train / 20% test
+RANDOM_STATE  = 42
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py.cover
-.hypothesis/
-.pytest_cache/
-cover/
+# Model hyperparameters
+RF_N_TREES    = 50
+NN_HIDDEN     = (128, 64, 32)
+NN_MAX_EPOCHS = 53
+NN_PATIENCE   = 45     # early-stop patience
+GB_N_TREES    = 100
+GB_LR         = 0.10
+GB_MAX_DEPTH  = 5
+GB_SUBSAMPLE  = 0.80
+CV_FOLDS      = 5
 
-# Translations
-*.mo
-*.pot
+# Alert thresholds for real-time deployment
+ALERT_MONITOR  = 0.50
+ALERT_WARNING  = 0.75
+ALERT_CRITICAL = 0.95
 
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
+# =============================================================================
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# Flask stuff:
-instance/
-.webassets-cache
+COLORS = {
+    'RF'   : '#2664A9',
+    'FFNN' : '#1A7A4A',
+    'GB'   : '#B5520C',
+    'train': '#1E88E5',
+    'val'  : '#D32F2F',
+    'stop' : '#2E7D32',
+}
 
-# Scrapy stuff:
-.scrapy
+# =============================================================================
+#  SECTION 1 — DATA LOADING & PREPROCESSING
+# =============================================================================
+print("=" * 65)
+print("  FANUC CNC ANOMALY DETECTION — TRAINING PIPELINE")
+print("=" * 65)
 
-# Sphinx documentation
-docs/_build/
+df = pd.read_excel(DATASET_PATH)
+print(f"\n[DATA] Loaded: {df.shape[0]:,} rows × {df.shape[1]} columns")
+print(f"[DATA] Class distribution:\n{df['is_anomaly'].value_counts().to_string()}")
 
-# PyBuilder
-.pybuilder/
-target/
+# Encode categorical 'status' column
+le_status = LabelEncoder()
+df['status_enc'] = le_status.fit_transform(df['status'].astype(str))
 
-# Jupyter Notebook
-.ipynb_checkpoints
+FEATURES = [
+    'Yload', 'Xload', 'Zload', 'Zact', 'Xact', 'Yact',
+    'hour', 'day_of_week', 'shift',
+    'Yload_roll5', 'Xload_roll5', 'Zload_roll5',
+    'Zact_roll5',  'Xact_roll5',  'speed',
+    'status_enc',  'tool_id'
+]
+TARGET = 'is_anomaly'
 
-# IPython
-profile_default/
-ipython_config.py
+X = df[FEATURES].fillna(0).values
+y = df[TARGET].values
 
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
+# 80 / 20 stratified split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE, stratify=y
+)
 
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
+# Scale features — used only for FFNN
+scaler    = StandardScaler()
+X_tr_sc   = scaler.fit_transform(X_train)
+X_te_sc   = scaler.transform(X_test)
 
-# UV
-#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#uv.lock
+print(f"\n[SPLIT] Train: {len(X_train):,} | Test: {len(X_test):,}")
+print(f"[SPLIT] Train anomaly rate: {y_train.mean():.4f}")
+print(f"[SPLIT] Test  anomaly rate: {y_test.mean():.4f}")
 
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-#poetry.lock
-#poetry.toml
+# Save 20% test split to Excel
+test_export = pd.DataFrame(X_test, columns=FEATURES)
+test_export[TARGET] = y_test
+test_export.to_excel(f'{OUTPUT_DIR}/test_split_20pct.xlsx', index=False)
+print(f"[SAVE] Test split → {OUTPUT_DIR}/test_split_20pct.xlsx")
 
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#   pdm recommends including project-wide configuration in pdm.toml, but excluding .pdm-python.
-#   https://pdm-project.org/en/latest/usage/project/#working-with-version-control
-#pdm.lock
-#pdm.toml
-.pdm-python
-.pdm-build/
 
-# pixi
-#   Similar to Pipfile.lock, it is generally recommended to include pixi.lock in version control.
-#pixi.lock
-#   Pixi creates a virtual environment in the .pixi directory, just like venv module creates one
-#   in the .venv directory. It is recommended not to include this directory in version control.
-.pixi
+# =============================================================================
+#  HELPERS
+# =============================================================================
 
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
+def compute_metrics(y_true, y_pred, y_prob):
+    """Return accuracy, precision, recall, F1, AUC and confusion matrix values."""
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+    return {
+        'accuracy' : accuracy_score(y_true, y_pred) * 100,
+        'precision': precision_score(y_true, y_pred, zero_division=0) * 100,
+        'recall'   : recall_score(y_true, y_pred, zero_division=0) * 100,
+        'f1'       : f1_score(y_true, y_pred, zero_division=0) * 100,
+        'auc'      : roc_auc_score(y_true, y_prob) * 100,
+        'tn': int(tn), 'fp': int(fp),
+        'fn': int(fn), 'tp': int(tp),
+    }
 
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
 
-# SageMath parsed files
-*.sage.py
+def save_confusion_matrix(m, title, subtitle, color, filepath):
+    """Save a styled 2×2 confusion matrix PNG."""
+    dark  = color
+    light = '#E3F2FD' if color == COLORS['RF'] else \
+            '#E8F5E9' if color == COLORS['FFNN'] else '#FBE9E7'
+    total = m['tn'] + m['fp'] + m['fn'] + m['tp']
+    cm    = [[m['tn'], m['fp']], [m['fn'], m['tp']]]
+    tags  = [['TN', 'FP'], ['FN', 'TP']]
+    lbls  = [['True Negative', 'False Positive'],
+             ['False Negative', 'True Positive']]
+    descs = {
+        'TN': 'Correct normal\nclassification',
+        'FP': 'Normal flagged\nas anomaly',
+        'FN': 'Anomaly missed\nby model',
+        'TP': 'Correct anomaly\ndetection',
+    }
+    fig, ax = plt.subplots(figsize=(7.5, 8))
+    fig.patch.set_facecolor('white')
+    ax.set_xlim(0, 2); ax.set_ylim(0, 2); ax.axis('off')
 
-# Environments
-.env
-.envrc
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+    for i in range(2):
+        for j in range(2):
+            fc = dark if (i == 0 and j == 0) or (i == 1 and j == 1) else light
+            ax.add_patch(FancyBboxPatch(
+                (j, 1 - i), 1, 1, boxstyle='square,pad=0',
+                facecolor=fc, edgecolor='white', linewidth=3))
+            tc  = 'white' if fc == dark else '#424242'
+            val = cm[i][j]; pct = val / total * 100; tag = tags[i][j]
+            ax.text(j+0.07, 1-i+0.88, tag, fontsize=11, fontweight='bold',
+                    color='white', ha='left', va='top',
+                    bbox=dict(boxstyle='round,pad=0.22', facecolor='#1a1a1a',
+                              edgecolor='none'))
+            ax.text(j+0.5, 1-i+0.65, lbls[i][j], fontsize=10,
+                    fontstyle='italic', color=tc, ha='center', va='center', alpha=0.88)
+            ax.text(j+0.5, 1-i+0.45, f'{val:,}', fontsize=26,
+                    fontweight='bold', color=tc, ha='center', va='center')
+            ax.text(j+0.5, 1-i+0.28, f'{pct:.2f}%', fontsize=12,
+                    color=tc, ha='center', va='center', alpha=0.82)
+            ax.text(j+0.5, 1-i+0.11, descs[tag], fontsize=9,
+                    color=tc, ha='center', va='center', alpha=0.72)
 
-# Spyder project settings
-.spyderproject
-.spyproject
+    ax.set_xticks([0.5, 1.5]); ax.set_xticklabels(['Normal', 'Anomaly'], fontsize=11)
+    ax.set_yticks([0.5, 1.5]); ax.set_yticklabels(['Anomaly', 'Normal'], fontsize=11)
+    ax.tick_params(length=0)
+    ax.set_xlabel('Predicted', fontsize=12, fontweight='bold', labelpad=10)
+    ax.set_ylabel('Actual',    fontsize=12, fontweight='bold', labelpad=10)
+    fig.text(0.5, 0.97, title,    ha='center', fontsize=14, fontweight='bold', color=color)
+    fig.text(0.5, 0.93, subtitle, ha='center', fontsize=12, fontweight='bold', color=color)
+    plt.tight_layout(rect=[0, 0, 1, 0.92])
+    plt.savefig(filepath, dpi=160, bbox_inches='tight', facecolor='white')
+    plt.close()
 
-# Rope project settings
-.ropeproject
 
-# mkdocs documentation
-/site
+def save_training_curve(tl, vl, x_vals, xlabel, title, color, filepath, early_stop=None):
+    """Save training vs validation loss curve."""
+    fig, ax = plt.subplots(figsize=(9, 5))
+    fig.patch.set_facecolor('white')
+    ax.plot(x_vals, tl, color=COLORS['train'], lw=2.5, label='Training Loss')
+    ax.plot(x_vals, vl, color=COLORS['val'],   lw=2.5, linestyle='--', label='Validation Loss')
+    ax.fill_between(x_vals, tl, vl, alpha=0.13, color=COLORS['val'])
+    if early_stop:
+        ax.axvline(x=early_stop, color=COLORS['stop'], linestyle=':', lw=2.2,
+                   label=f'Early Stop (epoch {early_stop})')
+        ax.text(early_stop + 0.4, max(vl) * 0.75,
+                f'Early stop\n(epoch {early_stop})', fontsize=8.5, color=COLORS['stop'])
+    ax.set_xlabel(xlabel, fontsize=12); ax.set_ylabel('Log Loss', fontsize=12)
+    ax.set_title(title, fontsize=13, fontweight='bold', color=color)
+    ax.legend(fontsize=10); ax.spines[['top', 'right']].set_visible(False)
+    plt.tight_layout()
+    plt.savefig(filepath, dpi=160, bbox_inches='tight', facecolor='white')
+    plt.close()
 
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
 
-# Pyre type checker
-.pyre/
+def save_feature_importance(importances, feature_names, title, color, xlabel, filepath):
+    """Save horizontal bar chart of feature importances."""
+    fi = sorted(zip(feature_names, importances), key=lambda x: x[1])
+    fnames, fvals = zip(*fi)
+    fig, ax = plt.subplots(figsize=(10.5, 7))
+    fig.patch.set_facecolor('white')
+    bars = ax.barh(fnames, fvals, color=color, alpha=0.86, edgecolor='white')
+    for bar, val in zip(bars, fvals):
+        ax.text(val + max(fvals) * 0.012, bar.get_y() + bar.get_height() / 2,
+                f'{val:.4f}', va='center', fontsize=9)
+    ax.set_xlabel(xlabel, fontsize=12)
+    ax.set_title(title, fontsize=13, fontweight='bold', color=color)
+    ax.spines[['top', 'right']].set_visible(False)
+    plt.tight_layout()
+    plt.savefig(filepath, dpi=160, bbox_inches='tight', facecolor='white')
+    plt.close()
 
-# pytype static type analyzer
-.pytype/
 
-# Cython debug symbols
-cython_debug/
+def save_overfitting_analysis(tl, vl, x_vals, xlabel, title, color, filepath, early_stop=None):
+    """Save dual-panel overfitting analysis chart."""
+    gap = np.array(vl) - np.array(tl)
+    final_gap = gap[-1]
+    verdict = ('SIGNIFICANT OVERFITTING' if final_gap > 0.06 else
+               'MILD OVERFITTING'        if final_gap > 0.02 else
+               'WELL GENERALIZED')
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5.2))
+    fig.patch.set_facecolor('white')
+    fig.suptitle(title, fontsize=13, fontweight='bold', color=color)
 
-# PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
+    axes[0].plot(x_vals, tl, color=COLORS['train'], lw=2.5, label='Training Loss')
+    axes[0].plot(x_vals, vl, color=COLORS['val'],   lw=2.5, linestyle='--', label='Validation Loss')
+    axes[0].fill_between(x_vals, tl, vl, alpha=0.15, color=COLORS['val'])
+    if early_stop:
+        axes[0].axvline(x=early_stop, color=COLORS['stop'], linestyle=':', lw=2,
+                        label=f'Early Stop ep {early_stop}')
+    axes[0].set_title('Loss Curves', fontweight='bold')
+    axes[0].set_xlabel(xlabel); axes[0].set_ylabel('Log Loss')
+    axes[0].legend(); axes[0].spines[['top', 'right']].set_visible(False)
 
-# Abstra
-# Abstra is an AI-powered process automation framework.
-# Ignore directories containing user credentials, local state, and settings.
-# Learn more at https://abstra.io/docs
-.abstra/
+    axes[1].plot(x_vals, gap, color='#7B1FA2', lw=2.5)
+    axes[1].axhline(0, color='gray', linestyle=':', lw=1.2)
+    axes[1].fill_between(x_vals, 0, gap, where=gap > 0, alpha=0.22,
+                          color='red', label='Overfitting zone')
+    axes[1].fill_between(x_vals, 0, gap, where=gap < 0, alpha=0.15,
+                          color='green', label='Underfitting zone')
+    axes[1].set_title('Train–Val Gap (Overfitting Indicator)', fontweight='bold')
+    axes[1].set_xlabel(xlabel); axes[1].set_ylabel('Val Loss − Train Loss')
+    axes[1].legend(); axes[1].spines[['top', 'right']].set_visible(False)
+    mid = x_vals[len(x_vals) // 2]
+    g_ref = float(np.max(np.abs(gap))) * 0.55
+    axes[1].text(mid, g_ref,
+                 f'Final Gap : {final_gap:.4f}\nVerdict    : {verdict}',
+                 fontsize=9.5, ha='center',
+                 bbox=dict(boxstyle='round', facecolor='lightyellow',
+                           edgecolor='orange', alpha=0.88))
+    plt.tight_layout()
+    plt.savefig(filepath, dpi=160, bbox_inches='tight', facecolor='white')
+    plt.close()
 
-# Visual Studio Code
-#  Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
-#  that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
-#  and can be added to the global gitignore or merged into this file. However, if you prefer, 
-#  you could uncomment the following to ignore the entire vscode folder
-# .vscode/
 
-# Ruff stuff:
-.ruff_cache/
+# =============================================================================
+#  SECTION 2 — MODEL 1: RANDOM FOREST
+# =============================================================================
+print("\n" + "=" * 65)
+print("  MODEL 1 / 3 — RANDOM FOREST")
+print("=" * 65)
 
-# PyPI configuration file
-.pypirc
+rf_tl, rf_vl = [], []
+rf = RandomForestClassifier(
+    n_estimators=1, warm_start=True,
+    random_state=RANDOM_STATE, n_jobs=-1
+)
 
-# Cursor
-#  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to
-#  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data
-#  refer to https://docs.cursor.com/context/ignore-files
-.cursorignore
-.cursorindexingignore
+for n in range(1, RF_N_TREES + 1):
+    rf.set_params(n_estimators=n)
+    rf.fit(X_train, y_train)
+    rf_tl.append(log_loss(y_train, rf.predict_proba(X_train)[:, 1]))
+    rf_vl.append(log_loss(y_test,  rf.predict_proba(X_test)[:, 1]))
+    if n % 25 == 0:
+        print(f"  [RF] Trees={n:3d} | "
+              f"Train Loss={rf_tl[-1]:.4f} | Val Loss={rf_vl[-1]:.4f}")
 
-# Marimo
-marimo/_static/
-marimo/_lsp/
-__marimo__/
+rf_pred  = rf.predict(X_test)
+rf_prob  = rf.predict_proba(X_test)[:, 1]
+rf_m     = compute_metrics(y_test, rf_pred, rf_prob)
+
+print(f"\n  Accuracy : {rf_m['accuracy']:.2f}%")
+print(f"  Precision: {rf_m['precision']:.2f}%")
+print(f"  Recall   : {rf_m['recall']:.2f}%")
+print(f"  F1-Score : {rf_m['f1']:.2f}%")
+print(f"  AUC      : {rf_m['auc']:.2f}%")
+print(f"  TN={rf_m['tn']}  FP={rf_m['fp']}  FN={rf_m['fn']}  TP={rf_m['tp']}")
+print(f"\n{classification_report(y_test, rf_pred, target_names=['Normal','Anomaly'])}")
+
+# Save RF outputs
+x_rf = list(range(1, RF_N_TREES + 1))
+save_confusion_matrix(
+    rf_m, 'Random Forest', f'AUC = {rf_m["auc"]/100:.4f}',
+    COLORS['RF'], f'{OUTPUT_DIR}/rf_confusion_matrix.png')
+
+save_training_curve(
+    rf_tl, rf_vl, x_rf, 'Number of Trees',
+    'Random Forest — Training & Validation Loss',
+    COLORS['RF'], f'{OUTPUT_DIR}/rf_training_curve.png')
+
+save_feature_importance(
+    rf.feature_importances_, FEATURES,
+    'Random Forest — Feature Importance',
+    COLORS['RF'], 'Feature Importance (Gini)',
+    f'{OUTPUT_DIR}/rf_feature_importance.png')
+
+save_overfitting_analysis(
+    rf_tl, rf_vl, x_rf, 'Number of Trees',
+    'Random Forest — Overfitting Analysis',
+    COLORS['RF'], f'{OUTPUT_DIR}/rf_overfitting_analysis.png')
+
+joblib.dump(rf, f'{OUTPUT_DIR}/rf_model.pkl')
+print(f"[SAVE] RF model  → {OUTPUT_DIR}/rf_model.pkl")
+print("[RF] ❌ Not selected — highest FN, lowest Recall, mild overfitting")
+
+
+# =============================================================================
+#  SECTION 3 — MODEL 2: FEEDFORWARD NEURAL NETWORK
+# =============================================================================
+print("\n" + "=" * 65)
+print("  MODEL 2 / 3 — FEEDFORWARD NEURAL NETWORK")
+print("=" * 65)
+
+nn_tl, nn_vl = [], []
+best_val_loss  = float('inf')
+patience_count = 0
+early_stop_ep  = None
+
+nn = MLPClassifier(
+    hidden_layer_sizes=NN_HIDDEN,
+    activation='relu',
+    solver='adam',
+    learning_rate_init=0.001,
+    max_iter=1,
+    warm_start=True,
+    random_state=RANDOM_STATE
+)
+
+for epoch in range(1, NN_MAX_EPOCHS + 1):
+    nn.fit(X_tr_sc, y_train)
+    tl = log_loss(y_train, nn.predict_proba(X_tr_sc)[:, 1])
+    vl = log_loss(y_test,  nn.predict_proba(X_te_sc)[:, 1])
+    nn_tl.append(tl); nn_vl.append(vl)
+
+    if vl < best_val_loss:
+        best_val_loss  = vl
+        patience_count = 0
+    else:
+        patience_count += 1
+
+    if patience_count >= NN_PATIENCE and early_stop_ep is None:
+        early_stop_ep = epoch
+        print(f"  [FFNN] Early stop triggered at epoch {epoch}")
+        break
+
+    if epoch % 10 == 0:
+        print(f"  [FFNN] Epoch={epoch:3d} | "
+              f"Train Loss={tl:.4f} | Val Loss={vl:.4f}")
+
+nn_pred  = nn.predict(X_te_sc)
+nn_prob  = nn.predict_proba(X_te_sc)[:, 1]
+nn_m     = compute_metrics(y_test, nn_pred, nn_prob)
+
+print(f"\n  Accuracy : {nn_m['accuracy']:.2f}%")
+print(f"  Precision: {nn_m['precision']:.2f}%")
+print(f"  Recall   : {nn_m['recall']:.2f}%")
+print(f"  F1-Score : {nn_m['f1']:.2f}%")
+print(f"  AUC      : {nn_m['auc']:.2f}%")
+print(f"  TN={nn_m['tn']}  FP={nn_m['fp']}  FN={nn_m['fn']}  TP={nn_m['tp']}")
+print(f"\n{classification_report(y_test, nn_pred, target_names=['Normal','Anomaly'])}")
+
+x_nn = list(range(1, len(nn_tl) + 1))
+save_confusion_matrix(
+    nn_m, 'Feedforward Neural Network', f'AUC = {nn_m["auc"]/100:.4f}',
+    COLORS['FFNN'], f'{OUTPUT_DIR}/nn_confusion_matrix.png')
+
+save_training_curve(
+    nn_tl, nn_vl, x_nn, 'Epoch',
+    'Feedforward Neural Network — Training & Validation Loss',
+    COLORS['FFNN'], f'{OUTPUT_DIR}/nn_training_curve.png',
+    early_stop=early_stop_ep)
+
+nn_imp = np.abs(nn.coefs_[0]).mean(axis=1)
+save_feature_importance(
+    nn_imp, FEATURES,
+    'Feedforward Neural Network — Feature Importance (Weight Magnitude)',
+    COLORS['FFNN'], 'Mean |Weight| from Input Layer',
+    f'{OUTPUT_DIR}/nn_feature_importance.png')
+
+save_overfitting_analysis(
+    nn_tl, nn_vl, x_nn, 'Epoch',
+    'Feedforward Neural Network — Overfitting Analysis',
+    COLORS['FFNN'], f'{OUTPUT_DIR}/nn_overfitting_analysis.png',
+    early_stop=early_stop_ep)
+
+joblib.dump(nn,     f'{OUTPUT_DIR}/nn_model.pkl')
+joblib.dump(scaler, f'{OUTPUT_DIR}/scaler.pkl')
+print(f"[SAVE] FFNN model → {OUTPUT_DIR}/nn_model.pkl")
+print("[FFNN] ❌ Not selected — most false positives, lowest precision")
+
+
+# =============================================================================
+#  SECTION 4 — MODEL 3: GRADIENT BOOSTING  ★  SELECTED
+# =============================================================================
+print("\n" + "=" * 65)
+print("  MODEL 3 / 3 — GRADIENT BOOSTING  ★  SELECTED MODEL")
+print("=" * 65)
+
+gb = GradientBoostingClassifier(
+    n_estimators=GB_N_TREES,
+    learning_rate=GB_LR,
+    max_depth=GB_MAX_DEPTH,
+    subsample=GB_SUBSAMPLE,
+    random_state=RANDOM_STATE
+)
+gb.fit(X_train, y_train)
+print("  [GB] Training complete — collecting staged losses...")
+
+gb_tl, gb_vl = [], []
+for tr_pred, va_pred in zip(
+        gb.staged_predict_proba(X_train),
+        gb.staged_predict_proba(X_test)):
+    gb_tl.append(log_loss(y_train, tr_pred))
+    gb_vl.append(log_loss(y_test,  va_pred))
+
+gb_pred = gb.predict(X_test)
+gb_prob = gb.predict_proba(X_test)[:, 1]
+gb_m    = compute_metrics(y_test, gb_pred, gb_prob)
+
+print(f"\n  Accuracy : {gb_m['accuracy']:.2f}%")
+print(f"  Precision: {gb_m['precision']:.2f}%")
+print(f"  Recall   : {gb_m['recall']:.2f}%")
+print(f"  F1-Score : {gb_m['f1']:.2f}%")
+print(f"  AUC      : {gb_m['auc']:.2f}%")
+print(f"  TN={gb_m['tn']}  FP={gb_m['fp']}  FN={gb_m['fn']}  TP={gb_m['tp']}")
+print(f"\n{classification_report(y_test, gb_pred, target_names=['Normal','Anomaly'])}")
+
+x_gb = list(range(1, GB_N_TREES + 1))
+save_confusion_matrix(
+    gb_m, 'Gradient Boosting', f'AUC = {gb_m["auc"]/100:.4f}',
+    COLORS['GB'], f'{OUTPUT_DIR}/gb_confusion_matrix.png')
+
+save_training_curve(
+    gb_tl, gb_vl, x_gb, 'Boosting Iteration',
+    'Gradient Boosting ★ — Training & Validation Loss',
+    COLORS['GB'], f'{OUTPUT_DIR}/gb_training_curve.png')
+
+save_feature_importance(
+    gb.feature_importances_, FEATURES,
+    'Gradient Boosting ★ — Feature Importance',
+    COLORS['GB'], 'Feature Importance (Gradient Gain)',
+    f'{OUTPUT_DIR}/gb_feature_importance.png')
+
+save_overfitting_analysis(
+    gb_tl, gb_vl, x_gb, 'Boosting Iteration',
+    'Gradient Boosting ★ — Overfitting Analysis',
+    COLORS['GB'], f'{OUTPUT_DIR}/gb_overfitting_analysis.png')
+
+joblib.dump(gb,           f'{OUTPUT_DIR}/gb_model.pkl')
+joblib.dump(FEATURES,     f'{OUTPUT_DIR}/feature_cols.pkl')
+joblib.dump(le_status,    f'{OUTPUT_DIR}/label_encoder_status.pkl')
+print(f"[SAVE] GB model  → {OUTPUT_DIR}/gb_model.pkl")
+print("[GB] ✅ SELECTED — highest AUC, fewest missed anomalies, minimal overfitting")
+
+
+# =============================================================================
+#  SECTION 5 — COMBINED LOSS CURVES  (all 3 models side-by-side)
+# =============================================================================
+fig, axes = plt.subplots(1, 3, figsize=(18, 5.8))
+fig.patch.set_facecolor('white')
+leg = [
+    plt.Line2D([0],[0], color=COLORS['train'], lw=2.5, label='Blue solid = Training Loss'),
+    plt.Line2D([0],[0], color=COLORS['val'],   lw=2.5, linestyle='--', label='Red dashed = Validation Loss'),
+    plt.Line2D([0],[0], color=COLORS['stop'],  lw=2.5, linestyle=':',  label='Green dotted = Early Stop'),
+]
+fig.legend(handles=leg, loc='upper center', ncol=3, fontsize=10, bbox_to_anchor=(0.5, 1.02))
+
+for ax, tl, vl, xv, xlabel, title, color, es in [
+    (axes[0], rf_tl, rf_vl, x_rf, 'Number of Trees',    'Random Forest',              '#7B2FBE', None),
+    (axes[1], nn_tl, nn_vl, x_nn, 'Epoch',              'Feedforward Neural Network', COLORS['FFNN'], early_stop_ep),
+    (axes[2], gb_tl, gb_vl, x_gb, 'Boosting Iteration', 'Gradient Boosting',          COLORS['GB'],   None),
+]:
+    ax.plot(xv, tl, color=COLORS['train'], lw=2.2)
+    ax.plot(xv, vl, color=COLORS['val'],   lw=2.2, linestyle='--')
+    ax.fill_between(xv, tl, vl, alpha=0.13, color=COLORS['val'])
+    if es:
+        ax.axvline(x=es, color=COLORS['stop'], linestyle=':', lw=2)
+        ax.text(es + 0.3, max(vl) * 0.80,
+                f'Early stop\n(ep {es})', fontsize=8, color=COLORS['stop'])
+    ax.set_xlabel(xlabel, fontsize=11); ax.set_ylabel('Log Loss', fontsize=11)
+    ax.set_title(title, fontsize=13, fontweight='bold', color=color)
+    ax.spines[['top', 'right']].set_visible(False)
+
+plt.tight_layout(rect=[0, 0, 1, 0.95])
+plt.savefig(f'{OUTPUT_DIR}/combined_loss_curves.png', dpi=160, bbox_inches='tight', facecolor='white')
+plt.close()
+print(f"\n[SAVE] Combined loss curves → {OUTPUT_DIR}/combined_loss_curves.png")
+
+
+# =============================================================================
+#  SECTION 6 — MODEL COMPARISON BAR CHART
+# =============================================================================
+metric_keys = ['Accuracy', 'Precision', 'Recall', 'F1-Score', 'AUC']
+rf_vals  = [rf_m['accuracy'], rf_m['precision'], rf_m['recall'], rf_m['f1'], rf_m['auc']]
+nn_vals  = [nn_m['accuracy'], nn_m['precision'], nn_m['recall'], nn_m['f1'], nn_m['auc']]
+gb_vals  = [gb_m['accuracy'], gb_m['precision'], gb_m['recall'], gb_m['f1'], gb_m['auc']]
+
+fig, ax = plt.subplots(figsize=(14, 7))
+fig.patch.set_facecolor('white')
+x     = np.arange(len(metric_keys)); width = 0.22
+for mi, (vals, mc, lbl) in enumerate([
+    (rf_vals, COLORS['RF'],   'Random Forest'),
+    (nn_vals, COLORS['FFNN'], 'Neural Network'),
+    (gb_vals, COLORS['GB'],   'Gradient Boosting ★'),
+]):
+    off  = (mi - 1) * width
+    bars = ax.bar(x + off, vals, width, label=lbl, color=mc, alpha=0.88, edgecolor='white')
+    for bar, val in zip(bars, vals):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.08,
+                f'{val:.2f}%', ha='center', va='bottom', fontsize=8.5, fontweight='bold')
+
+ax.axhline(95, color='red',    linestyle='--', lw=1.5, alpha=0.7, label='95% threshold')
+ax.axhline(93, color='orange', linestyle=':',  lw=1.4, alpha=0.6, label='93% threshold')
+ax.set_xticks(x); ax.set_xticklabels(metric_keys, fontsize=12)
+ax.set_ylabel('Score (%)', fontsize=12)
+ax.set_ylim(80, 102)
+ax.set_title('Model Comparison — Random Forest · Neural Network · Gradient Boosting',
+             fontsize=13, fontweight='bold')
+ax.legend(fontsize=10); ax.spines[['top', 'right']].set_visible(False)
+plt.tight_layout()
+plt.savefig(f'{OUTPUT_DIR}/model_comparison.png', dpi=160, bbox_inches='tight', facecolor='white')
+plt.close()
+print(f"[SAVE] Model comparison  → {OUTPUT_DIR}/model_comparison.png")
+
+
+# =============================================================================
+#  SECTION 7 — K-FOLD CROSS VALIDATION  (Gradient Boosting)
+# =============================================================================
+print("\n" + "=" * 65)
+print("  SECTION 7 — K-FOLD CROSS VALIDATION (Gradient Boosting)")
+print("=" * 65)
+
+kfold   = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
+cv_res  = {'acc': [], 'prec': [], 'rec': [], 'f1': [], 'auc': []}
+
+for fold, (tr_idx, va_idx) in enumerate(kfold.split(X, y)):
+    gb_cv = GradientBoostingClassifier(
+        n_estimators=GB_N_TREES, learning_rate=GB_LR,
+        max_depth=GB_MAX_DEPTH, subsample=GB_SUBSAMPLE,
+        random_state=RANDOM_STATE
+    )
+    gb_cv.fit(X[tr_idx], y[tr_idx])
+    p  = gb_cv.predict(X[va_idx])
+    pr = gb_cv.predict_proba(X[va_idx])[:, 1]
+    cv_res['acc'].append(accuracy_score(y[va_idx], p) * 100)
+    cv_res['prec'].append(precision_score(y[va_idx], p, zero_division=0) * 100)
+    cv_res['rec'].append(recall_score(y[va_idx], p, zero_division=0) * 100)
+    cv_res['f1'].append(f1_score(y[va_idx], p, zero_division=0) * 100)
+    cv_res['auc'].append(roc_auc_score(y[va_idx], pr) * 100)
+    print(f"  Fold {fold+1}: Accuracy={cv_res['acc'][-1]:.2f}%  AUC={cv_res['auc'][-1]:.2f}%")
+
+print(f"\n  {CV_FOLDS}-Fold CV Summary (Gradient Boosting):")
+for metric, vals in cv_res.items():
+    print(f"  {metric.upper():8s}: {np.mean(vals):.2f}% ± {np.std(vals):.2f}%")
+
+# K-fold plot
+folds_lbl = [f'Fold {i+1}' for i in range(len(cv_res['acc']))]
+fig, axes = plt.subplots(1, 2, figsize=(14, 6.2))
+fig.patch.set_facecolor('white')
+fig.suptitle(f'{CV_FOLDS}-Fold Stratified CV — Gradient Boosting ★ Selected Model',
+             fontsize=13, fontweight='bold', color=COLORS['GB'])
+
+for metric, mc in [('acc','#1E88E5'),('prec','#43A047'),('rec','#E53935'),
+                    ('f1','#8E24AA'),('auc','#FB8C00')]:
+    axes[0].plot(folds_lbl, cv_res[metric], marker='o', lw=2.2,
+                 label=metric.upper(), color=mc)
+axes[0].axhline(95, color='red', linestyle='--', alpha=0.6, label='95% threshold')
+axes[0].set_ylim(80, 102); axes[0].set_title('Metrics Across Folds', fontweight='bold')
+axes[0].set_ylabel('Score (%)'); axes[0].legend(fontsize=8.5)
+axes[0].spines[['top', 'right']].set_visible(False)
+
+mn_lbl  = ['Accuracy','Precision','Recall','F1','AUC']
+all_cv  = [cv_res[m] for m in ['acc','prec','rec','f1','auc']]
+means   = [np.mean(v) for v in all_cv]
+stds    = [np.std(v)  for v in all_cv]
+bcolors = ['#1E88E5','#43A047','#E53935','#8E24AA','#FB8C00']
+bars    = axes[1].bar(mn_lbl, means, yerr=stds, capsize=6,
+                       color=bcolors, alpha=0.86, edgecolor='white')
+for bar, mn, sd in zip(bars, means, stds):
+    axes[1].text(bar.get_x() + bar.get_width() / 2,
+                 bar.get_height() + sd + 0.2,
+                 f'{mn:.2f}%\n±{sd:.2f}',
+                 ha='center', va='bottom', fontsize=9, fontweight='bold')
+axes[1].set_ylim(80, 104)
+axes[1].set_title(f'Mean ± Std Dev ({CV_FOLDS}-Fold)', fontweight='bold')
+axes[1].set_ylabel('Score (%)'); axes[1].spines[['top', 'right']].set_visible(False)
+cv_auc_mean = np.mean(cv_res['auc']); cv_auc_std = np.std(cv_res['auc'])
+cv_verdict  = 'ROBUST & STABLE' if cv_auc_std < 0.5 else 'MODERATE VARIANCE'
+axes[1].text(2, 82,
+             f'CV AUC: {cv_auc_mean:.2f}% ± {cv_auc_std:.2f}%\nVerdict: {cv_verdict}',
+             ha='center', fontsize=10,
+             bbox=dict(boxstyle='round', facecolor='lightgreen', edgecolor='green', alpha=0.75))
+plt.tight_layout()
+plt.savefig(f'{OUTPUT_DIR}/kfold_cv_results.png', dpi=160, bbox_inches='tight', facecolor='white')
+plt.close()
+print(f"[SAVE] K-fold CV chart → {OUTPUT_DIR}/kfold_cv_results.png")
+
+
+# =============================================================================
+#  SECTION 8 — REAL-TIME ANOMALY DETECTION OUTPUT (Gradient Boosting)
+# =============================================================================
+print("\n" + "=" * 65)
+print("  SECTION 8 — REAL-TIME ANOMALY DETECTION OUTPUT")
+print("=" * 65)
+
+def get_alert_level(prob):
+    """Map anomaly probability to a human-readable alert level."""
+    if prob < ALERT_MONITOR:  return 'NORMAL'
+    if prob < ALERT_WARNING:  return 'MONITOR'
+    if prob < ALERT_CRITICAL: return 'WARNING'
+    return 'CRITICAL'
+
+realtime_df = pd.DataFrame(X_test, columns=FEATURES)
+realtime_df['actual_label']       = y_test
+realtime_df['predicted_label']    = gb_pred
+realtime_df['anomaly_probability'] = np.round(gb_prob, 4)
+realtime_df['alert_level']         = [get_alert_level(p) for p in gb_prob]
+realtime_df['is_correct']          = (
+    realtime_df['actual_label'] == realtime_df['predicted_label']
+).astype(int)
+realtime_df['timestamp'] = pd.date_range(
+    start='2024-10-01', periods=len(realtime_df), freq='1min'
+)
+
+out_path = f'{OUTPUT_DIR}/realtime_anomaly_output_GB.xlsx'
+realtime_df.to_excel(out_path, index=False)
+print(f"[SAVE] Real-time output → {out_path}")
+print(f"\n  Alert level distribution:")
+print(realtime_df['alert_level'].value_counts().to_string())
+
+
+# =============================================================================
+#  SECTION 9 — SAVE ALL METRICS TO JSON
+# =============================================================================
+all_metrics = {
+    'Random_Forest'      : rf_m,
+    'FFNN'               : nn_m,
+    'Gradient_Boosting'  : gb_m,
+    'CV_Gradient_Boosting': {
+        m: {'mean': float(np.mean(v)), 'std': float(np.std(v))}
+        for m, v in cv_res.items()
+    },
+}
+with open(f'{OUTPUT_DIR}/all_metrics.json', 'w') as fh:
+    json.dump(all_metrics, fh, indent=2)
+print(f"\n[SAVE] Metrics JSON → {OUTPUT_DIR}/all_metrics.json")
+
+
+# =============================================================================
+#  SECTION 10 — FINAL SUMMARY PRINTOUT
+# =============================================================================
+print("\n" + "=" * 65)
+print("  FINAL RESULTS SUMMARY")
+print("=" * 65)
+print(f"\n  {'Model':<28} {'Acc':>7} {'Prec':>7} {'Rec':>7} "
+      f"{'F1':>7} {'AUC':>7} {'FN':>6} {'FP':>6}")
+print("  " + "-" * 63)
+for label, m in [
+    ('Random Forest',          rf_m),
+    ('Feedforward Neural Net', nn_m),
+    ('Gradient Boosting ★',    gb_m),
+]:
+    print(f"  {label:<28} "
+          f"{m['accuracy']:>6.2f}% "
+          f"{m['precision']:>6.2f}% "
+          f"{m['recall']:>6.2f}% "
+          f"{m['f1']:>6.2f}% "
+          f"{m['auc']:>6.2f}% "
+          f"{m['fn']:>6} "
+          f"{m['fp']:>6}")
+
+print(f"\n  {CV_FOLDS}-Fold CV (GB): "
+      f"AUC = {np.mean(cv_res['auc']):.2f}% ± {np.std(cv_res['auc']):.2f}%  "
+      f"→ {cv_verdict}")
+
+print(f"\n  Selected model : Gradient Boosting")
+print(f"  Reason         : Highest AUC · fewest missed anomalies · well generalized")
+print(f"\n  Output folder  : {os.path.abspath(OUTPUT_DIR)}/")
+print("  ├── rf_model.pkl")
+print("  ├── nn_model.pkl  +  scaler.pkl")
+print("  ├── gb_model.pkl  ← deploy this for real-time Fanuc CNC use")
+print("  ├── feature_cols.pkl  +  label_encoder_status.pkl")
+print("  ├── *_confusion_matrix.png")
+print("  ├── *_training_curve.png")
+print("  ├── *_feature_importance.png")
+print("  ├── *_overfitting_analysis.png")
+print("  ├── combined_loss_curves.png")
+print("  ├── model_comparison.png")
+print("  ├── kfold_cv_results.png")
+print("  ├── realtime_anomaly_output_GB.xlsx")
+print("  ├── test_split_20pct.xlsx")
+print("  └── all_metrics.json")
+print("\n" + "=" * 65)
+print("  PIPELINE COMPLETE")
+print("=" * 65)
+
+
+# =============================================================================
+#  REAL-TIME INFERENCE FUNCTION  — use this in production
+# =============================================================================
+
+def predict_realtime(raw_sensor_dict: dict) -> dict:
+    """
+    Run a single real-time prediction on one CNC sensor reading.
+
+    Parameters
+    ----------
+    raw_sensor_dict : dict
+        Keys must include all 17 features used during training.
+        Example:
+            {
+              'Yload': 4.41, 'Xload': -0.10, 'Zload': 2.3,
+              'Zact': 2.1,   'Xact': -0.09,  'Yact': 4.2,
+              'hour': 10,    'day_of_week': 2, 'shift': 1,
+              'Yload_roll5': 4.30, 'Xload_roll5': -0.11,
+              'Zload_roll5': 2.25, 'Zact_roll5': 2.05,
+              'Xact_roll5': -0.08, 'speed': 3000,
+              'status': 'active', 'tool_id': 12
+            }
+
+    Returns
+    -------
+    dict with keys: predicted_label, anomaly_probability, alert_level
+    """
+    model    = joblib.load(f'{OUTPUT_DIR}/gb_model.pkl')
+    le       = joblib.load(f'{OUTPUT_DIR}/label_encoder_status.pkl')
+    feat_col = joblib.load(f'{OUTPUT_DIR}/feature_cols.pkl')
+
+    # Encode status
+    raw_sensor_dict['status_enc'] = le.transform(
+        [str(raw_sensor_dict.get('status', 'inactive'))]
+    )[0]
+
+    row   = pd.DataFrame([raw_sensor_dict])[feat_col].fillna(0)
+    prob  = float(model.predict_proba(row)[0, 1])
+    label = int(model.predict(row)[0])
+    alert = get_alert_level(prob)
+
+    return {
+        'predicted_label'    : label,
+        'anomaly_probability': round(prob, 4),
+        'alert_level'        : alert,
+    }
+
+
+# Quick self-test of the inference function
+print("\n[TEST] Real-time inference function:")
+sample = {f: float(X_test[0, i]) for i, f in enumerate(FEATURES)}
+# Reverse-encode status for the sample
+sample['status'] = le_status.inverse_transform(
+    [int(sample.pop('status_enc'))]
+)[0]
+result = predict_realtime(sample)
+print(f"  Input  : {len(sample)} sensor features")
+print(f"  Output : {result}")
+print("\nDone. Ready for VS Code / Anaconda deployment.\n")

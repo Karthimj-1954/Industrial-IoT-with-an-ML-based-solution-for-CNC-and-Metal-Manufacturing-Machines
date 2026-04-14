@@ -1,0 +1,2644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FANUC CNC · GB Anomaly Detection Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&family=Barlow:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #090c0f;
+    --panel:     #0d1117;
+    --border:    #1c2633;
+    --accent:    #00e5ff;
+    --danger:    #ff2d55;
+    --warn:      #ffb700;
+    --ok:        #00e676;
+    --dim:       #3a4a5a;
+    --text:      #c8d8e8;
+    --mono:      'Share Tech Mono', monospace;
+    --sans:      'Barlow Condensed', sans-serif;
+    --body:      'Barlow', sans-serif;
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     LIGHT THEME — full comprehensive overrides
+     ══════════════════════════════════════════════════════════ */
+  body.light {
+    --bg:     #eef2f7;
+    --panel:  #ffffff;
+    --border: #b8cfe0;
+    --accent: #0070a0;
+    --danger: #c8243e;
+    --warn:   #a86e00;
+    --ok:     #006b35;
+    --dim:    #6a86a0;
+    --text:   #1a2838;
+  }
+
+  /* ── Global / Body ── */
+  body.light::after { opacity: 0; }
+
+  /* ── Header ── */
+  body.light header {
+    background: linear-gradient(90deg, #d4e4f4 0%, #bfd0e8 100%);
+    border-bottom-color: #a8c0d8;
+  }
+  body.light .logo-text { color: #0a1f38; }
+  body.light .logo-sub  { color: #0070a0; }
+  body.light #clock     { color: #0070a0; }
+  body.light #conn-status { color: #5a7890; }
+  body.light .header-ws input {
+    background: #f2f7fb;
+    color: #0070a0;
+    border-color: #a8c0d8;
+  }
+  body.light .header-ws button { color: #ffffff; }
+
+  /* ── Panels ── */
+  body.light .panel { box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  body.light .panel::before { opacity: 0.6; }
+  body.light .panel-title {
+    color: #0070a0;
+    border-bottom-color: #b8cfe0;
+  }
+
+  /* ── Session Statistics panel ── */
+  body.light .stat-card {
+    background: #f0f7fc;
+    border-color: #b8cfe0;
+  }
+  body.light .stat-val { color: #0070a0; }
+  body.light .stat-lbl { color: #2a4060; }
+
+  /* ── Score / Ring panel ── */
+  body.light #anomaly-label  { color: #3a6080; }
+  body.light #score-num      { color: #006b35; }
+  body.light #score-pct      { color: #5a7890; }
+  body.light #verdict        { color: #006b35; }
+  body.light #ring-track     { stroke: #b8cfe0; }
+  body.light #score-halted-overlay {
+    background: linear-gradient(180deg, rgba(238,242,247,0.97) 0%, rgba(245,220,226,0.97) 100%);
+  }
+  body.light .halted-title {
+    text-shadow: 0 0 16px rgba(200,36,62,0.3);
+  }
+  body.light .halted-score-frozen { color: #3a5870; }
+  body.light .halted-instruction  { color: #4a6880; }
+
+  /* ── Axis Loads panel ── */
+  body.light .axis-label        { color: #1a2838; font-weight: 700; }
+  body.light .axis-val          { color: #0070a0; }
+  body.light .axis-bar          { background: #d4e4f0; }
+  body.light .axis-row.flagged  {
+    background: rgba(200,36,62,0.07);
+    border-color: #c8243e;
+  }
+  body.light .axis-row.flagged .axis-label { color: #c8243e; }
+
+  /* ── Spindle Speed panel ── */
+  body.light #speed-panel   { background: rgba(0,112,160,0.05); }
+  body.light #speed-num     { color: #0070a0; }
+  body.light #speed-lbl     { color: #2a4060; }
+
+  /* ── Event Log ── */
+  body.light .log-entry {
+    background: rgba(0,107,53,0.07);
+    border-left-color: #006b35;
+  }
+  body.light .log-entry.anom {
+    background: rgba(200,36,62,0.08);
+    border-left-color: #c8243e;
+  }
+  body.light .log-ts  { color: #5a7890; }
+  body.light .log-msg { color: #1a2838; }
+  body.light .log-type {
+    color: #a86e00;
+    background: rgba(168,110,0,0.10);
+  }
+
+  /* ── Anomaly Classification panel ── */
+  body.light .anomaly-type-label  { color: #c8243e; text-shadow: none; }
+  body.light .anomaly-description { color: #2a4060; }
+  body.light .flagged-tag {
+    background: rgba(200,36,62,0.10);
+    border-color: #c8243e;
+    color: #c8243e;
+  }
+  body.light .flagged-tag.medium {
+    background: rgba(168,110,0,0.10);
+    border-color: #a86e00;
+    color: #a86e00;
+  }
+
+  /* ── CNC Fault Map panel ── */
+  body.light .fault-map-badge {
+    color: #0070a0;
+    border-color: #0070a0;
+  }
+  body.light #machine-conn-banner.banner-disconnected {
+    color: #5a7890;
+    background: rgba(90,120,144,0.10);
+    border-color: #8aaac0;
+  }
+  body.light #machine-conn-banner.banner-demo {
+    color: #a86e00;
+    background: rgba(168,110,0,0.10);
+    border-color: #a86e00;
+  }
+  body.light #machine-conn-banner.banner-live {
+    color: #006b35;
+    background: rgba(0,107,53,0.10);
+    border-color: #006b35;
+  }
+  body.light #protocol-badge {
+    color: #5a7890;
+    border-color: #b8cfe0;
+  }
+  body.light #machine-mode-overlay.mode-disconnected {
+    background: rgba(100,140,170,0.15);
+    color: #5a7890;
+    border-color: #8aaac0;
+  }
+
+  /* ── Fault Map Detail Sidebar ── */
+  body.light #fault-map-detail {
+    background: #f4f9fc;
+    border-color: #b8cfe0;
+  }
+  body.light .detail-titlebar {
+    background: #d0e4f2;
+  }
+  body.light .detail-titlebar-text { color: #0070a0; }
+  body.light .detail-part-name     { color: #0a1f38; }
+  body.light .detail-content       { color: #1a2838; }
+  body.light .detail-metric        { border-bottom-color: #d4e4f0; }
+  body.light .detail-metric-lbl    { color: #4a6880; }
+  body.light .detail-metric-val    { color: #0070a0; }
+  body.light .detail-metric-val.danger { color: #c8243e; }
+  body.light .detail-metric-val.warn   { color: #a86e00; }
+  body.light .detail-placeholder   { color: #6a86a0; }
+
+  /* ── Fault Map Legend ── */
+  body.light .fault-map-legend {
+    color: #3a5870;
+    border-top-color: #c0d4e4;
+  }
+
+  /* ── Machine SVG ── */
+  body.light #cnc-machine-svg rect[fill="#0f1e2e"],
+  body.light #cnc-machine-svg rect[fill="#0a1520"],
+  body.light #cnc-machine-svg rect[fill="#0d1e2e"],
+  body.light #cnc-machine-svg rect[fill="#0a1820"],
+  body.light #cnc-machine-svg rect[fill="#0d1117"],
+  body.light #cnc-machine-svg rect[fill="#1c2633"] { fill: #c8dcea; }
+  body.light #cnc-machine-svg rect[width="600"]    { fill: rgba(0,0,0,0.025); }
+  body.light #cnc-machine-svg line { stroke: #90b8d0 !important; }
+  body.light #cnc-machine-svg text { fill: #5a8aaa !important; }
+  body.light #cnc-machine-svg rect[stroke="#1c3a52"] { stroke: #7aaac8; }
+
+  /* ── Scrollbars ── */
+  body.light ::-webkit-scrollbar-track { background: #e8f0f8; }
+  body.light ::-webkit-scrollbar-thumb { background: #b0c8dc; }
+  body.light ::-webkit-scrollbar-thumb:hover { background: #88aac8; }
+
+  /* ── Theme Toggle Button ── */
+  #theme-toggle {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    flex-shrink: 0;
+    line-height: 1;
+    padding: 0;
+  }
+  #theme-toggle:hover { background: rgba(0,229,255,0.1); transform: rotate(20deg); }
+  body.light #theme-toggle:hover { background: rgba(0,119,170,0.1); }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--body);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── scanline overlay ── */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent, transparent 2px,
+      rgba(0,229,255,0.015) 2px, rgba(0,229,255,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 16px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(90deg, #0a0f14 0%, #0d1620 100%);
+    flex-shrink: 0;
+    z-index: 100;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .logo-icon {
+    width: 30px; height: 30px;
+    border: 2px solid var(--accent);
+    border-radius: 5px;
+    display: grid; place-items: center;
+    position: relative;
+  }
+  .logo-icon::before {
+    content: '';
+    width: 11px; height: 11px;
+    background: var(--accent);
+    clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+  }
+  .logo-text {
+    font-family: var(--sans);
+    font-weight: 900;
+    font-size: 22px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #fff;
+  }
+  .logo-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 2px;
+  }
+  .header-right {
+    display: flex; align-items: center; gap: 12px;
+  }
+  #conn-status {
+    font-family: var(--mono);
+    font-size: 11px;
+    display: flex; align-items: center; gap: 6px;
+    color: var(--dim);
+  }
+  #conn-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--dim);
+    transition: background 0.4s;
+  }
+  #conn-dot.live  { background: var(--ok);     box-shadow: 0 0 8px var(--ok); }
+  #conn-dot.demo  { background: var(--warn);   box-shadow: 0 0 8px var(--warn); }
+  #conn-dot.error { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+  #clock {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 1px;
+  }
+  /* WS controls in header */
+  .header-ws {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+  .header-ws input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    padding: 4px 8px;
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 11px;
+    width: 160px;
+  }
+  .header-ws button {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    padding: 4px 12px;
+    border-radius: 3px;
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+  .header-ws button:hover { background: var(--ok); }
+  .header-ws button.demo-btn { background: var(--warn); color: #000; }
+  .header-ws button.demo-btn:hover { background: #ffd040; }
+
+  /* ── ALERT BANNER ── */
+  #alert-banner {
+    height: 0; overflow: hidden;
+    background: var(--danger);
+    transition: height 0.3s ease;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #fff;
+    flex-shrink: 0;
+  }
+  #alert-banner.show { height: 34px; }
+  #anomaly-type-banner {
+    font-size: 12px;
+    margin-left: 16px;
+    padding: 2px 10px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 4px;
+    letter-spacing: 2px;
+  }
+
+  /* ── Layout: 5-col x 2-row grid ── */
+  main {
+    flex: 1;
+    min-height: 0;
+    padding: 8px 10px;
+    display: grid;
+    grid-template-columns: 195px 230px 1fr 1fr 185px;
+    grid-template-rows: 1fr 1fr;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  /* ── Panel base ── */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    position: relative;
+    overflow: hidden;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.4;
+  }
+  .panel.danger-panel::before { 
+    background: linear-gradient(90deg, transparent, var(--danger), transparent); 
+    opacity: 0.9; 
+    animation: pulse 2s ease-in-out infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 0.9; }
+    50% { opacity: 0.4; }
+  }
+  
+  .panel-title {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 5px;
+    flex-shrink: 0;
+  }
+
+  /* ── Big Score Panel ── */
+  #score-panel {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ── Score-panel Halted Overlay (sits ON TOP of ring/verdict) ── */
+  #score-halted-overlay {
+    display: none;
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    background: linear-gradient(180deg, rgba(9,12,15,0.97) 0%, rgba(20,5,10,0.97) 100%);
+    border-radius: 6px;
+    z-index: 30;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 20px 14px;
+    /* height set by JS to match score panel */
+    bottom: 0;
+  }
+  #score-halted-overlay.show { display: flex; }
+
+  .halted-icon {
+    font-size: 38px;
+    animation: haltedPulse 1s ease-in-out infinite;
+  }
+  @keyframes haltedPulse {
+    0%,100% { transform: scale(1);   opacity: 1; }
+    50%      { transform: scale(1.1); opacity: 0.7; }
+  }
+  .halted-title {
+    font-family: var(--sans);
+    font-weight: 900;
+    font-size: 16px;
+    letter-spacing: 4px;
+    color: var(--danger);
+    text-shadow: 0 0 20px rgba(255,45,85,0.7);
+    text-align: center;
+  }
+  .halted-divider {
+    width: 60%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--danger), transparent);
+    opacity: 0.5;
+  }
+  .halted-score-frozen {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    text-align: center;
+    line-height: 1.7;
+  }
+  .halted-score-frozen span {
+    color: var(--danger);
+    font-weight: bold;
+  }
+  .halted-instruction {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 1.5px;
+    text-align: center;
+    line-height: 1.7;
+    padding: 0 8px;
+  }
+  .halted-instruction strong {
+    color: var(--ok);
+    display: block;
+    font-size: 10px;
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+  #anomaly-label {
+    font-family: var(--sans);
+    font-weight: 900;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-bottom: 8px;
+    transition: color 0.3s;
+  }
+  #score-ring {
+    position: relative;
+    width: 150px; height: 150px;
+    margin-bottom: 10px;
+  }
+  #score-ring svg {
+    width: 100%; height: 100%;
+    transform: rotate(-90deg);
+  }
+  #ring-track { fill: none; stroke: var(--border); stroke-width: 8; }
+  #ring-fill  {
+    fill: none; stroke: var(--ok);
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-dasharray: 565.5;
+    stroke-dashoffset: 565.5;
+    transition: stroke-dashoffset 0.6s cubic-bezier(.4,0,.2,1), stroke 0.4s;
+  }
+  #score-value {
+    position: absolute;
+    inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-family: var(--mono);
+  }
+  #score-num {
+    font-size: 40px;
+    line-height: 1;
+    color: var(--ok);
+    transition: color 0.3s;
+  }
+  #score-pct { font-size: 16px; color: var(--dim); }
+  #verdict {
+    font-family: var(--sans);
+    font-weight: 900;
+    font-size: 24px;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--ok);
+    transition: color 0.3s;
+  }
+
+  /* ── Stat cards ── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    flex: 1;
+  }
+  .stat-card {
+    background: rgba(0,229,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 8px 6px;
+    text-align: center;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .stat-val {
+    font-family: var(--mono);
+    font-size: 22px;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 3px;
+  }
+  .stat-lbl {
+    font-family: var(--sans);
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  /* ── Anomaly Type Panel ── */
+  #anomaly-type-panel {
+    grid-column: 3 / 6;
+    grid-row: 2;
+    display: none;
+    overflow: hidden;
+  }
+  #anomaly-type-panel.show {
+    display: flex;
+    flex-direction: column;
+  }
+  #anomaly-type-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+  }
+  .anomaly-icon {
+    font-size: 32px;
+    flex-shrink: 0;
+  }
+  .anomaly-details {
+    flex: 1;
+    min-width: 0;
+  }
+  .anomaly-type-label {
+    font-family: var(--sans);
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    color: var(--danger);
+    margin-bottom: 4px;
+    text-shadow: 0 0 20px rgba(255,45,85,0.5);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .anomaly-description {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    line-height: 1.4;
+  }
+  .flagged-features {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+  }
+  .flagged-tag {
+    background: rgba(255,45,85,0.2);
+    border: 1px solid var(--danger);
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--danger);
+    font-weight: bold;
+  }
+  .flagged-tag.medium {
+    background: rgba(255,183,0,0.2);
+    border-color: var(--warn);
+    color: var(--warn);
+  }
+
+  /* ── Error Image in Anomaly Panel ── */
+  .anomaly-image-area {
+    width: 130px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .error-svg-container {
+    width: 120px;
+    height: 90px;
+    position: relative;
+  }
+  .error-image-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--dim);
+    text-align: center;
+    letter-spacing: 1px;
+  }
+
+  /* ── Score history chart ── */
+  #history-panel { 
+    grid-column: 3 / 6;
+    grid-row: 1;
+  }
+  #score-canvas {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    display: block;
+  }
+
+  /* ── Axis bars ── */
+  .axis-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 5px;
+    transition: all 0.3s;
+  }
+  .axis-row.flagged {
+    background: rgba(255,45,85,0.1);
+    padding: 4px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--danger);
+  }
+  .axis-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    width: 48px;
+    color: var(--text);
+    font-weight: bold;
+  }
+  .axis-row.flagged .axis-label { color: var(--danger); }
+  .axis-bar {
+    flex: 1;
+    height: 10px;
+    background: rgba(28,38,51,0.8);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .axis-fill {
+    height: 100%;
+    width: 0%;
+    transition: width 0.5s ease, background 0.3s;
+  }
+  .axis-val {
+    font-family: var(--mono);
+    font-size: 10px;
+    width: 55px;
+    text-align: right;
+    color: var(--accent);
+  }
+
+  /* ── Speed display ── */
+  #speed-panel { background: rgba(0,229,255,0.04); }
+  #speed-top-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 2px;
+  }
+  #speed-num {
+    font-family: var(--mono);
+    font-size: 36px;
+    color: var(--accent);
+    line-height: 1;
+  }
+  #speed-lbl {
+    font-family: var(--sans);
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  #speed-canvas {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    display: block;
+  }
+
+  /* ── Axis panels grid pos ── */
+  #panel-loads { grid-column: 1; grid-row: 2; }
+  #panel-positions { grid-column: 1; grid-row: 1; }
+  #speed-panel { grid-column: 5; grid-row: 1; }
+  #log-panel { grid-column: 5; grid-row: 2; }
+  #stats-panel { grid-column: 1; grid-row: 1; }
+
+  /* ── Event log ── */
+  #log-panel {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  #event-log {
+    font-family: var(--mono);
+    font-size: 10px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+  }
+  .log-entry {
+    padding: 5px 8px;
+    border-left: 2px solid var(--ok);
+    margin-bottom: 4px;
+    background: rgba(0,230,118,0.04);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .log-entry.anom {
+    border-left-color: var(--danger);
+    background: rgba(255,45,85,0.08);
+  }
+  .log-ts { color: var(--dim); width: 60px; font-size: 10px; }
+  .log-msg { flex: 1; color: var(--text); font-size: 10px; }
+  .log-type {
+    font-size: 9px;
+    color: var(--warn);
+    background: rgba(255,183,0,0.1);
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+
+  /* ── CNC Visual Fault Map ── */
+  #fault-map-panel {
+    grid-column: 3 / 5;
+    grid-row: 2;
+    overflow: hidden;
+  }
+  /* When anomaly panel is shown, fault map hides */
+  #fault-map-panel.hidden-by-anomaly { display: none; }
+  #fault-map-panel .panel-title { margin-bottom: 6px; }
+  .fault-map-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    flex-shrink: 0;
+  }
+  .fault-map-badge {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 2px 7px;
+    border-radius: 2px;
+    letter-spacing: 1.5px;
+    animation: borderPulse 2s ease-in-out infinite;
+  }
+  @keyframes borderPulse {
+    0%, 100% { border-color: var(--accent); color: var(--accent); }
+    50% { border-color: rgba(0,229,255,0.3); color: rgba(0,229,255,0.5); }
+  }
+  .fault-map-body {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  #cnc-svg-wrap {
+    flex: 1;
+    position: relative;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  #cnc-machine-svg {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    display: block;
+  }
+  .cnc-part { cursor: pointer; transition: opacity 0.2s; }
+  .cnc-part:hover { opacity: 0.85; }
+  .cnc-part .part-hit { fill: transparent; stroke: none; }
+  .cnc-part:hover .part-hit { fill: rgba(0,229,255,0.08); stroke: var(--accent); stroke-width: 1; }
+  .cnc-part.status-ok .part-indicator { fill: var(--ok); }
+  .cnc-part.status-warn .part-indicator { fill: var(--warn); }
+  .cnc-part.status-error .part-indicator { fill: var(--danger); }
+  .cnc-part.status-error .part-indicator { animation: dotPulse 0.8s ease-in-out infinite; }
+  @keyframes dotPulse { 0%, 100% { opacity: 1; r: 5; } 50% { opacity: 0.4; r: 7; } }
+
+  #fault-map-detail {
+    width: 180px;
+    flex-shrink: 0;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .detail-titlebar {
+    background: var(--border);
+    padding: 5px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .detail-titlebar-text { font-family: var(--mono); font-size: 9px; color: var(--accent); letter-spacing: 2px; }
+  .detail-dots { display: flex; gap: 4px; }
+  .detail-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .detail-content {
+    padding: 8px 10px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text);
+    flex: 1;
+    overflow-y: auto;
+  }
+  .detail-part-name { font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 2px; color: #fff; margin-bottom: 4px; }
+  .detail-status-badge { display: inline-block; padding: 2px 7px; border-radius: 2px; font-size: 9px; font-weight: bold; letter-spacing: 1.5px; margin-bottom: 6px; }
+  .detail-status-badge.ok { background: rgba(0,230,118,0.2); color: var(--ok); border: 1px solid var(--ok); }
+  .detail-status-badge.warn { background: rgba(255,183,0,0.2); color: var(--warn); border: 1px solid var(--warn); }
+  .detail-status-badge.error { background: rgba(255,45,85,0.2); color: var(--danger); border: 1px solid var(--danger); }
+  .detail-metric { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid rgba(28,38,51,0.8); }
+  .detail-metric:last-child { border-bottom: none; }
+  .detail-metric-lbl { color: var(--dim); font-size: 9px; letter-spacing: 1px; }
+  .detail-metric-val { color: var(--accent); font-size: 10px; }
+  .detail-metric-val.danger { color: var(--danger); }
+  .detail-metric-val.warn { color: var(--warn); }
+  .detail-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--dim); font-size: 9px; letter-spacing: 1.5px; text-align: center; gap: 6px; }
+
+  .fault-map-legend {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 5px;
+    padding-top: 5px;
+    border-top: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 9px;
+    flex-shrink: 0;
+  }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+
+  /* ── Connection Mode Indicator on machine ── */
+  #machine-mode-overlay {
+    position: absolute;
+    top: 4px; right: 4px;
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 2px;
+    letter-spacing: 1.5px;
+    pointer-events: none;
+    z-index: 10;
+    transition: all 0.4s;
+  }
+  #machine-mode-overlay.mode-disconnected {
+    background: rgba(58,74,90,0.3);
+    color: var(--dim);
+    border: 1px solid var(--dim);
+  }
+  #machine-mode-overlay.mode-demo {
+    background: rgba(255,183,0,0.15);
+    color: var(--warn);
+    border: 1px solid var(--warn);
+  }
+  #machine-mode-overlay.mode-live {
+    background: rgba(0,230,118,0.15);
+    color: var(--ok);
+    border: 1px solid var(--ok);
+    animation: liveGlow 2s ease-in-out infinite;
+  }
+  @keyframes liveGlow {
+    0%,100% { box-shadow: 0 0 6px rgba(0,230,118,0.4); }
+    50% { box-shadow: 0 0 12px rgba(0,230,118,0.8); }
+  }
+
+  /* Machine SVG tint overlays by mode */
+  #cnc-machine-svg .machine-live-overlay { display: none; }
+  #cnc-machine-svg.mode-live .machine-live-overlay { display: block; }
+  #cnc-machine-svg .machine-demo-overlay { display: none; }
+  #cnc-machine-svg.mode-demo .machine-demo-overlay { display: block; }
+  #cnc-machine-svg .machine-disconnected-overlay { display: block; }
+  #cnc-machine-svg.mode-live .machine-disconnected-overlay { display: none; }
+  #cnc-machine-svg.mode-demo .machine-disconnected-overlay { display: none; }
+
+  /* Live mode: parts pulse with live accent */
+  #cnc-machine-svg.mode-live .cnc-part .part-indicator {
+    filter: drop-shadow(0 0 3px var(--ok));
+  }
+  #cnc-machine-svg.mode-demo .cnc-part .part-indicator {
+    filter: drop-shadow(0 0 3px var(--warn));
+  }
+
+  /* Live data stream lines on machine */
+  .data-stream-line {
+    stroke-dasharray: 8 4;
+    stroke-dashoffset: 0;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+  #cnc-machine-svg.mode-live .data-stream-line,
+  #cnc-machine-svg.mode-demo .data-stream-line {
+    opacity: 1;
+    animation: dataFlow 1.5s linear infinite;
+  }
+  @keyframes dataFlow {
+    to { stroke-dashoffset: -24; }
+  }
+
+  /* Axis position indicator line on machine SVG */
+  #svg-tool-pos {
+    transition: transform 0.5s ease;
+  }
+
+  /* Connection banner in fault map header */
+  #machine-conn-banner {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    padding: 2px 8px;
+    border-radius: 2px;
+    margin-right: 6px;
+  }
+  #machine-conn-banner.banner-disconnected { color: var(--dim); background: rgba(58,74,90,0.2); border: 1px solid var(--dim); }
+  #machine-conn-banner.banner-demo { color: var(--warn); background: rgba(255,183,0,0.1); border: 1px solid var(--warn); }
+  #machine-conn-banner.banner-live { color: var(--ok); background: rgba(0,230,118,0.1); border: 1px solid var(--ok); }
+
+  /* Live spindle animation speed changes */
+  #cnc-machine-svg.mode-live .spindle-anim {
+    animation-duration: 0.4s !important;
+  }
+  #cnc-machine-svg.mode-demo .spindle-anim {
+    animation-duration: 1s !important;
+  }
+
+  /* Machine protocol badge */
+  #protocol-badge {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--dim);
+    letter-spacing: 1px;
+    padding: 2px 6px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+  }
+  /* ── Fault Cleared Button (header) ── */
+  #fault-cleared-btn {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #00e676 0%, #00b248 100%);
+    color: #000;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-family: var(--sans);
+    font-weight: 900;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    animation: faultBtnPulse 1.1s ease-in-out infinite;
+    transition: transform 0.15s, background 0.15s;
+    flex-shrink: 0;
+  }
+  #fault-cleared-btn.show { display: flex; }
+  #fault-cleared-btn:hover {
+    background: linear-gradient(135deg, #69ff9a 0%, #00e676 100%);
+    transform: scale(1.05);
+    animation: none;
+  }
+  @keyframes faultBtnPulse {
+    0%,100% { box-shadow: 0 0 12px rgba(0,230,118,0.5); }
+    50%      { box-shadow: 0 0 28px rgba(0,230,118,0.95); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <div class="logo-icon"></div>
+    <div>
+      <div class="logo-text">CNC-GB</div>
+      <div class="logo-sub">GRADIENT BOOSTING · ANOMALY DETECTION</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="header-ws">
+      <span style="color:var(--dim);font-size:10px">ws://</span>
+      <input id="ws-url" value="localhost:8765" spellcheck="false">
+      <button onclick="connect()">CONNECT</button>
+      <button class="demo-btn" onclick="startDemo()">DEMO</button>
+    </div>
+    <button id="fault-cleared-btn" onclick="clearFault()">✅ FAULT CLEARED — RESUME</button>
+    <button id="theme-toggle" onclick="toggleTheme()" title="Toggle light / dark theme">🌙</button>
+    <div id="conn-status">
+      <div id="conn-dot"></div>
+      <span id="conn-text">DISCONNECTED</span>
+    </div>
+    <div id="clock">00:00:00</div>
+  </div>
+</header>
+
+<!-- Alert Banner -->
+<div id="alert-banner">
+  <span>⚠️ ANOMALY DETECTED</span>
+  <span id="anomaly-type-banner"></span>
+</div>
+
+<main>
+  <!-- COL 1 ROW 1: Stats -->
+  <div class="panel" style="grid-column:1;grid-row:1">
+    <div class="panel-title">Session Statistics</div>
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-val" id="s-total">—</div>
+        <div class="stat-lbl">Total Samples</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="s-anomalies">—</div>
+        <div class="stat-lbl">Anomalies</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="s-rate">—</div>
+        <div class="stat-lbl">Anomaly Rate</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="s-uptime">—</div>
+        <div class="stat-lbl">Uptime</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COL 1 ROW 2: Axis Loads -->
+  <div class="panel" style="grid-column:1;grid-row:2">
+    <div class="panel-title">Axis Loads (σ)</div>
+    <div class="axis-row" id="row-yload">
+      <div class="axis-label">Y-LOAD</div>
+      <div class="axis-bar"><div class="axis-fill" id="ax-yload"></div></div>
+      <div class="axis-val" id="av-yload">0.000</div>
+    </div>
+    <div class="axis-row" id="row-xload">
+      <div class="axis-label">X-LOAD</div>
+      <div class="axis-bar"><div class="axis-fill" id="ax-xload"></div></div>
+      <div class="axis-val" id="av-xload">0.000</div>
+    </div>
+    <div class="axis-row" id="row-zload">
+      <div class="axis-label">Z-LOAD</div>
+      <div class="axis-bar"><div class="axis-fill" id="ax-zload"></div></div>
+      <div class="axis-val" id="av-zload">0.000</div>
+    </div>
+    <div style="border-top:1px solid var(--border);margin:6px 0 6px"></div>
+    <div class="axis-row" id="row-zact">
+      <div class="axis-label">Z-ACT</div>
+      <div class="axis-bar"><div class="axis-fill" id="ax-zact"></div></div>
+      <div class="axis-val" id="av-zact">0.000</div>
+    </div>
+    <div class="axis-row" id="row-xact">
+      <div class="axis-label">X-ACT</div>
+      <div class="axis-bar"><div class="axis-fill" id="ax-xact"></div></div>
+      <div class="axis-val" id="av-xact">0.000</div>
+    </div>
+    <div class="axis-row" id="row-yact">
+      <div class="axis-label">Y-ACT</div>
+      <div class="axis-bar"><div class="axis-fill" id="ax-yact"></div></div>
+      <div class="axis-val" id="av-yact">0.000</div>
+    </div>
+  </div>
+
+  <!-- COL 2 ROW 1+2: Score Ring (spans both rows) -->
+  <div class="panel" id="score-panel" style="grid-column:2;grid-row:1/3">
+
+    <!-- HALTED OVERLAY — sits on top of ring when anomaly latched -->
+    <div id="score-halted-overlay">
+      <div class="halted-icon">⛔</div>
+      <div class="halted-title">MACHINE<br>HALTED</div>
+      <div class="halted-divider"></div>
+      <div class="halted-score-frozen" id="halted-score-info">
+        Score: <span id="halted-score-val">—</span><br>
+        Level: <span id="halted-level-val">—</span><br>
+        Type: <span id="halted-type-val">—</span>
+      </div>
+      <div class="halted-instruction">
+        Dashboard paused.<br>Inspect &amp; resolve fault, then:<br>
+        <strong>▶ FAULT CLEARED — RESUME</strong>
+      </div>
+    </div>
+
+    <div id="anomaly-label">INITIALIZING...</div>
+    <div id="score-ring">
+      <svg viewBox="0 0 200 200">
+        <circle id="ring-track" cx="100" cy="100" r="90"/>
+        <circle id="ring-fill" cx="100" cy="100" r="90"/>
+      </svg>
+      <div id="score-value">
+        <div id="score-num">0.0</div>
+        <div id="score-pct">%</div>
+      </div>
+    </div>
+    <div id="verdict">—</div>
+  </div>
+
+  <!-- COL 3+4 ROW 1: Score History Chart -->
+  <div class="panel" id="history-panel" style="grid-column:3/5;grid-row:1">
+    <div class="panel-title">Anomaly Score History (last 200)</div>
+    <canvas id="score-canvas"></canvas>
+  </div>
+
+  <!-- COL 5 ROW 1: Spindle Speed -->
+  <div class="panel" id="speed-panel" style="grid-column:5;grid-row:1">
+    <div class="panel-title">Spindle Speed</div>
+    <div id="speed-top-row">
+      <div id="speed-num">0000</div>
+      <div id="speed-lbl">RPM</div>
+    </div>
+    <canvas id="speed-canvas"></canvas>
+  </div>
+
+  <!-- COL 3+4 ROW 2: Fault Map (shown when no anomaly) / Anomaly Panel (when anomaly) -->
+  <!-- Fault Map -->
+  <div class="panel" id="fault-map-panel" style="grid-column:3/5;grid-row:2">
+    <div class="fault-map-header">
+      <div class="panel-title" style="margin-bottom:0;border-bottom:none">CNC Machine · Visual Fault Map</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span id="machine-conn-banner" class="banner-disconnected">DISCONNECTED</span>
+        <span id="protocol-badge">—</span>
+        <div class="fault-map-badge">CLICK PARTS TO INSPECT</div>
+      </div>
+    </div>
+    <div class="fault-map-body">
+      <div id="cnc-svg-wrap">
+        <div id="machine-mode-overlay" class="mode-disconnected">DISCONNECTED</div>
+        <svg id="cnc-machine-svg" viewBox="0 0 600 300" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(28,38,51,0.4)" stroke-width="0.5"/>
+            </pattern>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+              <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <rect width="600" height="300" fill="url(#grid)"/>
+          <!-- Machine Base / Table -->
+          <g class="cnc-part status-ok" id="part-table" onclick="inspectPart('table')">
+            <rect x="60" y="238" width="400" height="22" rx="3" fill="#0f1e2e" stroke="#1c3a52" stroke-width="1.5"/>
+            <rect x="60" y="260" width="400" height="16" rx="2" fill="#0a1520" stroke="#1c3a52" stroke-width="1"/>
+            <line x1="80" y1="249" x2="440" y2="249" stroke="#1c3a52" stroke-width="0.5" stroke-dasharray="6,4"/>
+            <text x="240" y="254" text-anchor="middle" font-family="monospace" font-size="7" fill="#2a4a6a" letter-spacing="3">← X AXIS →</text>
+            <rect x="60" y="236" width="400" height="42" rx="3" class="part-hit"/>
+            <circle cx="68" cy="242" r="4" class="part-indicator" filter="url(#glow)"/>
+          </g>
+          <!-- Column -->
+          <g class="cnc-part status-ok" id="part-column" onclick="inspectPart('column')">
+            <rect x="66" y="70" width="28" height="172" rx="3" fill="#0d1e2e" stroke="#1c3a52" stroke-width="1.5"/>
+            <rect x="70" y="76" width="20" height="160" rx="2" fill="#0a1820" stroke="#163050" stroke-width="1"/>
+            <line x1="80" y1="85" x2="80" y2="230" stroke="#1c3a52" stroke-width="0.5" stroke-dasharray="4,4"/>
+            <text x="80" y="160" text-anchor="middle" font-family="monospace" font-size="7" fill="#2a4a6a" transform="rotate(-90,80,160)" letter-spacing="2">↑ Y ↓</text>
+            <rect x="58" y="65" width="44" height="178" rx="3" class="part-hit"/>
+            <circle cx="72" cy="74" r="4" class="part-indicator" filter="url(#glow)"/>
+          </g>
+          <!-- Z Axis -->
+          <g class="cnc-part status-ok" id="part-zaxis" onclick="inspectPart('zaxis')">
+            <rect x="100" y="95" width="62" height="118" rx="3" fill="#0d1e2e" stroke="#1c3a52" stroke-width="1.5"/>
+            <rect x="106" y="130" width="50" height="68" rx="2" fill="#102030" stroke="#1e4060" stroke-width="1.5"/>
+            <rect x="116" y="95" width="24" height="22" rx="2" fill="#0a1820" stroke="#1c3a52" stroke-width="1"/>
+            <text x="131" y="168" text-anchor="middle" font-family="monospace" font-size="7" fill="#2a4a6a" letter-spacing="2">Z AXIS</text>
+            <rect x="96" y="88" width="72" height="130" rx="3" class="part-hit"/>
+            <circle cx="106" cy="100" r="4" class="part-indicator" filter="url(#glow)"/>
+          </g>
+          <!-- Spindle -->
+          <g class="cnc-part status-ok" id="part-spindle" onclick="inspectPart('spindle')">
+            <rect x="118" y="198" width="22" height="40" rx="3" fill="#0d1e2e" stroke="#00b8d4" stroke-width="1.5"/>
+            <line x1="118" y1="207" x2="140" y2="207" stroke="#0a3040" stroke-width="1.5"/>
+            <line x1="118" y1="214" x2="140" y2="214" stroke="#0a3040" stroke-width="1.5"/>
+            <line x1="118" y1="221" x2="140" y2="221" stroke="#0a3040" stroke-width="1.5"/>
+            <rect x="122" y="238" width="14" height="10" rx="2" fill="#0a2030" stroke="#00b8d4" stroke-width="1.5"/>
+            <polygon points="125,248 129,258 133,248" fill="#00b8d4" opacity="0.8">
+              <animate attributeName="opacity" values="0.8;0.4;0.8" dur="1.5s" repeatCount="indefinite"/>
+            </polygon>
+            <circle cx="129" cy="214" r="6" fill="none" stroke="#00b8d4" stroke-width="1" stroke-dasharray="3,2" opacity="0.5">
+              <animateTransform attributeName="transform" type="rotate" from="0 129 214" to="360 129 214" dur="2s" repeatCount="indefinite"/>
+            </circle>
+            <rect x="114" y="193" width="30" height="70" rx="3" class="part-hit"/>
+            <circle cx="120" cy="202" r="4" class="part-indicator" filter="url(#glow)"/>
+          </g>
+          <!-- X Motor -->
+          <g class="cnc-part status-ok" id="part-xmotor" onclick="inspectPart('xmotor')">
+            <rect x="410" y="242" width="34" height="26" rx="2" fill="#0d1e2e" stroke="#1c3a52" stroke-width="1.5"/>
+            <line x1="414" y1="249" x2="440" y2="249" stroke="#1c3a52" stroke-width="1"/>
+            <line x1="414" y1="255" x2="440" y2="255" stroke="#1c3a52" stroke-width="1"/>
+            <text x="427" y="272" text-anchor="middle" font-family="monospace" font-size="6" fill="#2a4a6a">X-DRV</text>
+            <rect x="408" y="240" width="38" height="36" rx="2" class="part-hit"/>
+            <circle cx="414" cy="246" r="4" class="part-indicator" filter="url(#glow)"/>
+          </g>
+          <!-- Coolant -->
+          <g class="cnc-part status-warn" id="part-coolant" onclick="inspectPart('coolant')">
+            <rect x="470" y="220" width="50" height="42" rx="3" fill="#0d2030" stroke="#ffb700" stroke-width="1.5"/>
+            <rect x="474" y="225" width="42" height="30" rx="2" fill="#0a1820" stroke="#1c3050" stroke-width="1"/>
+            <rect x="476" y="234" width="38" height="16" rx="1" fill="rgba(0,180,210,0.12)"/>
+            <line x1="476" y1="234" x2="514" y2="234" stroke="#ffb700" stroke-width="1" stroke-dasharray="3,2"/>
+            <text x="495" y="244" text-anchor="middle" font-family="monospace" font-size="6" fill="#ffb700">LOW</text>
+            <text x="495" y="268" text-anchor="middle" font-family="monospace" font-size="6" fill="#2a4a6a">COOLANT</text>
+            <rect x="468" y="218" width="54" height="55" rx="3" class="part-hit"/>
+            <circle cx="476" cy="224" r="4" class="part-indicator" filter="url(#glow)"/>
+          </g>
+          <!-- Control Cabinet -->
+          <g class="cnc-part status-ok" id="part-control" onclick="inspectPart('control')">
+            <rect x="470" y="70" width="80" height="110" rx="3" fill="#0d1e2e" stroke="#1c3a52" stroke-width="1.5"/>
+            <rect x="478" y="80" width="64" height="46" rx="2" fill="#061218" stroke="#1e4060" stroke-width="1"/>
+            <line x1="484" y1="88" x2="536" y2="88" stroke="#1c3a52" stroke-width="1"/>
+            <line x1="484" y1="95" x2="528" y2="95" stroke="#1c3a52" stroke-width="1"/>
+            <line x1="484" y1="102" x2="534" y2="102" stroke="#1c3a52" stroke-width="1"/>
+            <line x1="484" y1="109" x2="526" y2="109" stroke="#1c3a52" stroke-width="1"/>
+            <line x1="484" y1="116" x2="532" y2="116" stroke="#1c3a52" stroke-width="1"/>
+            <rect x="478" y="80" width="64" height="46" rx="2" fill="rgba(0,229,255,0.03)"/>
+            <circle cx="484" cy="138" r="4" fill="#00e676" filter="url(#glow)"/>
+            <circle cx="497" cy="138" r="4" fill="#ffb700"/>
+            <circle cx="510" cy="138" r="4" fill="#1c2633"/>
+            <rect x="518" y="132" width="22" height="12" rx="2" fill="#ff2d55" opacity="0.8"/>
+            <text x="529" y="141" text-anchor="middle" font-family="monospace" font-size="5" fill="#fff" font-weight="bold">E-STP</text>
+            <text x="510" y="168" text-anchor="middle" font-family="monospace" font-size="7" fill="#2a4a6a" letter-spacing="1">CNC CTRL</text>
+            <rect x="468" y="68" width="84" height="114" rx="3" class="part-hit"/>
+            <circle cx="476" cy="74" r="4" class="part-indicator" filter="url(#glow)"/>
+          </g>
+          <!-- Work Surface -->
+          <g class="cnc-part status-ok" id="part-workpiece" onclick="inspectPart('workpiece')">
+            <rect x="140" y="232" width="265" height="10" rx="2" fill="#0a1e30" stroke="#1c3a52" stroke-width="1.5"/>
+            <line x1="168" y1="232" x2="168" y2="242" stroke="#163050" stroke-width="1.5"/>
+            <line x1="196" y1="232" x2="196" y2="242" stroke="#163050" stroke-width="1.5"/>
+            <line x1="224" y1="232" x2="224" y2="242" stroke="#163050" stroke-width="1.5"/>
+            <line x1="252" y1="232" x2="252" y2="242" stroke="#163050" stroke-width="1.5"/>
+            <line x1="280" y1="232" x2="280" y2="242" stroke="#163050" stroke-width="1.5"/>
+            <line x1="308" y1="232" x2="308" y2="242" stroke="#163050" stroke-width="1.5"/>
+            <line x1="336" y1="232" x2="336" y2="242" stroke="#163050" stroke-width="1.5"/>
+            <line x1="364" y1="232" x2="364" y2="242" stroke="#163050" stroke-width="1.5"/>
+            <rect x="138" y="230" width="269" height="14" class="part-hit"/>
+            <circle cx="148" cy="235" r="3" class="part-indicator" filter="url(#glow)"/>
+          </g>
+          <!-- Connector lines -->
+          <line x1="470" y1="155" x2="175" y2="155" stroke="#1c3a52" stroke-width="0.8" stroke-dasharray="5,4" opacity="0.3"/>
+          <!-- X axis arrow -->
+          <line x1="142" y1="285" x2="402" y2="285" stroke="#1c3a52" stroke-width="1"/>
+          <polygon points="142,285 150,281 150,289" fill="#1c3a52"/>
+          <polygon points="402,285 394,281 394,289" fill="#1c3a52"/>
+          <text x="272" y="293" text-anchor="middle" font-family="monospace" font-size="6" fill="#2a4a6a">← X TRAVEL →</text>
+          <!-- Y axis arrow -->
+          <line x1="40" y1="80" x2="40" y2="232" stroke="#1c3a52" stroke-width="1"/>
+          <polygon points="40,80 36,88 44,88" fill="#1c3a52"/>
+          <polygon points="40,232 36,224 44,224" fill="#1c3a52"/>
+          <text x="40" y="160" text-anchor="middle" font-family="monospace" font-size="6" fill="#2a4a6a" transform="rotate(-90,40,160)">↑ Y TRAVEL ↓</text>
+
+          <!-- ── DATA STREAM LINES (shown in live/demo mode) ── -->
+          <!-- Cabinet to Z-axis data line -->
+          <line class="data-stream-line" x1="470" y1="148" x2="175" y2="148" stroke="#00e5ff" stroke-width="1" opacity="0"/>
+          <!-- Cabinet to spindle data line -->
+          <line class="data-stream-line" x1="470" y1="160" x2="145" y2="220" stroke="#00e5ff" stroke-width="1" opacity="0" style="animation-delay:0.3s"/>
+          <!-- Cabinet to table data line -->
+          <line class="data-stream-line" x1="470" y1="172" x2="300" y2="238" stroke="#00e5ff" stroke-width="1" opacity="0" style="animation-delay:0.6s"/>
+
+          <!-- ── TOOL POSITION INDICATOR (live mode) ── -->
+          <g id="svg-tool-pos" style="transform: translateX(0px) translateY(0px)">
+            <!-- crosshair on work surface -->
+            <circle id="tool-pos-dot" cx="265" cy="235" r="5" fill="none" stroke="#00e5ff" stroke-width="1.5" opacity="0" stroke-dasharray="3,2">
+              <animate attributeName="r" values="5;7;5" dur="1s" repeatCount="indefinite"/>
+            </circle>
+            <line id="tool-pos-h" x1="255" y1="235" x2="275" y2="235" stroke="#00e5ff" stroke-width="1" opacity="0"/>
+            <line id="tool-pos-v" x1="265" y1="225" x2="265" y2="245" stroke="#00e5ff" stroke-width="1" opacity="0"/>
+          </g>
+
+          <!-- ── DISCONNECTED OVERLAY (grey tint) ── -->
+          <rect class="machine-disconnected-overlay" width="600" height="300" fill="rgba(9,12,15,0.45)" pointer-events="none"/>
+          <text class="machine-disconnected-overlay" x="300" y="148" text-anchor="middle" font-family="monospace" font-size="13" fill="#3a4a5a" letter-spacing="4">NO MACHINE CONNECTED</text>
+          <text class="machine-disconnected-overlay" x="300" y="166" text-anchor="middle" font-family="monospace" font-size="9" fill="#2a3a4a" letter-spacing="2">ENTER WS URL AND CLICK CONNECT</text>
+
+          <!-- ── DEMO OVERLAY (amber tint) ── -->
+          <rect class="machine-demo-overlay" width="600" height="300" fill="rgba(255,183,0,0.03)" pointer-events="none"/>
+          <text class="machine-demo-overlay" x="300" y="290" text-anchor="middle" font-family="monospace" font-size="8" fill="rgba(255,183,0,0.4)" letter-spacing="3">SYNTHETIC DATA — NOT A REAL MACHINE</text>
+
+          <!-- ── LIVE OVERLAY (green tint) ── -->
+          <rect class="machine-live-overlay" width="600" height="300" fill="rgba(0,230,118,0.02)" pointer-events="none"/>
+          <!-- Live pulse rings on machine parts -->
+          <circle class="machine-live-overlay" cx="129" cy="214" r="16" fill="none" stroke="rgba(0,230,118,0.2)" stroke-width="1">
+            <animate attributeName="r" values="12;20;12" dur="2s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0.4;0;0.4" dur="2s" repeatCount="indefinite"/>
+          </circle>
+        </svg>
+        <div class="fault-map-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--ok)"></div><span style="color:var(--text)">Normal</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--warn)"></div><span style="color:var(--text)">Warning</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--danger)"></div><span style="color:var(--text)">Error</span></div>
+          <span style="color:var(--dim);margin-left:8px">Click parts to inspect</span>
+        </div>
+      </div>
+      <div id="fault-map-detail">
+        <div class="detail-titlebar">
+          <span class="detail-titlebar-text">PART INSPECTOR</span>
+          <div class="detail-dots">
+            <div class="detail-dot" style="background:#ff2d55"></div>
+            <div class="detail-dot" style="background:#ffb700"></div>
+            <div class="detail-dot" style="background:#00e676"></div>
+          </div>
+        </div>
+        <div class="detail-content" id="detail-content">
+          <div class="detail-placeholder">
+            <svg width="30" height="30" viewBox="0 0 40 40" opacity="0.3"><circle cx="20" cy="20" r="16" fill="none" stroke="#3a4a5a" stroke-width="2"/><line x1="20" y1="12" x2="20" y2="22" stroke="#3a4a5a" stroke-width="2" stroke-linecap="round"/><circle cx="20" cy="27" r="2" fill="#3a4a5a"/></svg>
+            <span>SELECT PART</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COL 3+4 ROW 2 OVERLAY: Anomaly Classification (same grid position, shown when anomaly) -->
+  <div class="panel danger-panel" id="anomaly-type-panel" style="grid-column:3/5;grid-row:2">
+    <div class="panel-title">⚠️ Anomaly Classification</div>
+    <div id="anomaly-type-content">
+      <div class="anomaly-image-area">
+        <div class="error-svg-container" id="error-svg-container">
+          <svg id="error-visual" width="120" height="90" viewBox="0 0 180 140" xmlns="http://www.w3.org/2000/svg">
+            <rect x="20" y="90" width="140" height="30" rx="4" fill="#1c2633" stroke="#ff2d55" stroke-width="1.5"/>
+            <rect x="40" y="40" width="100" height="55" rx="4" fill="#0d1117" stroke="#ff2d55" stroke-width="1.5"/>
+            <rect x="78" y="20" width="24" height="40" rx="3" fill="#1c2633" stroke="#ff2d55" stroke-width="1.5"/>
+            <polygon points="84,60 90,72 96,60" fill="#ff2d55"/>
+            <line x1="90" y1="72" x2="75" y2="88" stroke="#ff2d55" stroke-width="2" stroke-dasharray="3,2">
+              <animate attributeName="opacity" values="0.9;0.2;0.9" dur="0.8s" repeatCount="indefinite"/>
+            </line>
+            <line x1="90" y1="72" x2="105" y2="88" stroke="#ff2d55" stroke-width="2" stroke-dasharray="3,2">
+              <animate attributeName="opacity" values="0.2;0.9;0.2" dur="0.8s" repeatCount="indefinite"/>
+            </line>
+            <polygon points="150,10 170,42 130,42" fill="none" stroke="#ff2d55" stroke-width="2.5"/>
+            <text x="150" y="34" text-anchor="middle" font-family="monospace" font-size="18" fill="#ff2d55" font-weight="bold">!</text>
+            <rect x="40" y="40" width="100" height="55" rx="4" fill="rgba(255,45,85,0.08)">
+              <animate attributeName="fill" values="rgba(255,45,85,0.08);rgba(255,45,85,0.25);rgba(255,45,85,0.08)" dur="1.2s" repeatCount="indefinite"/>
+            </rect>
+          </svg>
+        </div>
+        <div class="error-image-label" id="error-image-label">CNC FAULT</div>
+      </div>
+      <div class="anomaly-icon">🔴</div>
+      <div class="anomaly-details">
+        <div class="anomaly-type-label" id="anomaly-type-name">—</div>
+        <div class="anomaly-description" id="anomaly-description">—</div>
+        <div class="flagged-features" id="flagged-features-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COL 5 ROW 2: Event Log -->
+  <div class="panel" id="log-panel" style="grid-column:5;grid-row:2">
+    <div class="panel-title">Event Log</div>
+    <div id="event-log"></div>
+  </div>
+
+</main>
+
+
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// CNC GRADIENT BOOSTING ANOMALY DETECTION DASHBOARD - ENHANCED
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// MODEL: GradientBoosting Classifier (FINAL_CNC_ANOMALY_MODEL_GB.pkl)
+// ─────────────────────────────────────────────────────────────────────────────
+// • Accuracy: 91.54%  |  Precision: 98.50%  |  Recall: 84.36%
+// • F1: 90.88%        |  AUC: 0.9465
+// • Features: 18 total
+//
+// DATASET: Enhanced_Preprocessed_Dataset.xlsx
+// - Total: 94,476 samples  |  Normal: 47,238  |  Anomaly: 47,238 (balanced)
+// - Speed range: 1,542–3,475 RPM  |  Tool IDs: 20–25
+//
+// ANOMALY TYPES (from dataset):
+// ─────────────────────────────
+//   servo_overload      → High load on servo axes (Y/X/Z)
+//   tool_wear_trend     → Gradual load drift indicating worn tool
+//   spindle_speed_fault → Speed outside 2200–2800 RPM band
+//   vibration_fault     → Erratic position deviations (Xact/Yact/Zact)
+//   axis_deviation      → Position/load mismatch across axes
+//   none                → Normal operation
+//
+// CONFUSION MATRIX (test set):
+//   TN: 9,327  FP: 121  FN: 1,478  TP: 7,970
+//
+// PRODUCTION READY: ✓ Deployed March 2026
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════════════════
+// State Management
+// ══════════════════════════════════════════════════════════════════════════════
+const scoreHistory = [];
+const MAX_HIST = 200;
+let ws = null;
+let demoTimer = null;
+let startTime = null;
+let uptimeTimer = null;
+
+// ── Fault / Halt State ──────────────────────────────────────────────────────
+let machinePaused  = false;   // true = halted, waiting for operator
+let faultLatchTimer = null;   // 1 s delay before latch fires
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Theme Toggle
+// ══════════════════════════════════════════════════════════════════════════════
+function toggleTheme() {
+  const isLight = document.body.classList.toggle('light');
+  document.getElementById('theme-toggle').textContent = isLight ? '☀️' : '🌙';
+  try { localStorage.setItem('cnc-theme', isLight ? 'light' : 'dark'); } catch(e) {}
+  drawHistory();
+  drawSpeedHistory();
+}
+// Restore saved preference on load
+(function() {
+  let saved = 'dark';
+  try { saved = localStorage.getItem('cnc-theme') || 'dark'; } catch(e) {}
+  if (saved === 'light') {
+    document.body.classList.add('light');
+    document.getElementById('theme-toggle').textContent = '☀️';
+  }
+})();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Clock
+// ══════════════════════════════════════════════════════════════════════════════
+setInterval(() => {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('en-GB', {hour12: false});
+}, 1000);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Canvas Setup
+// ══════════════════════════════════════════════════════════════════════════════
+const canvas = document.getElementById('score-canvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  canvas.width = canvas.offsetWidth * devicePixelRatio;
+  canvas.height = canvas.offsetHeight * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  drawHistory();
+}
+window.addEventListener('resize', resizeCanvas);
+setTimeout(resizeCanvas, 100);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Draw History Chart
+// ══════════════════════════════════════════════════════════════════════════════
+function drawHistory() {
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  const light = document.body.classList.contains('light');
+  ctx.clearRect(0, 0, W, H);
+
+  if (scoreHistory.length < 2) return;
+
+  // Grid lines
+  ctx.strokeStyle = light ? 'rgba(160,192,215,0.9)' : 'rgba(28,38,51,0.8)';
+  ctx.lineWidth = 1;
+  [0.25, 0.5, 0.75].forEach(f => {
+    const y = H * (1 - f);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
+    ctx.stroke();
+    
+    ctx.fillStyle = light ? 'rgba(58,88,112,0.9)' : 'rgba(58,74,90,0.7)';
+    ctx.font = `10px 'Share Tech Mono'`;
+    ctx.fillText((f * 100).toFixed(0) + '%', 4, y - 3);
+  });
+
+  // Threshold line (0.5)
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = light ? 'rgba(168,110,0,0.8)' : 'rgba(255,183,0,0.6)';
+  ctx.lineWidth = 2;
+  const ty = H * 0.5;
+  ctx.beginPath();
+  ctx.moveTo(0, ty);
+  ctx.lineTo(W, ty);
+  ctx.stroke();
+  ctx.fillStyle = light ? 'rgba(58,88,112,0.9)' : 'rgba(58,74,90,0.7)';
+  ctx.fillText('THRESHOLD', W - 80, ty - 5);
+  ctx.setLineDash([]);
+
+  // Fill area
+  const n = scoreHistory.length;
+  const stepX = W / (MAX_HIST - 1);
+  const startX = (MAX_HIST - n) * stepX;
+
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, light ? 'rgba(0,112,160,0.22)' : 'rgba(0,229,255,0.3)');
+  grad.addColorStop(1, light ? 'rgba(0,112,160,0.03)' : 'rgba(0,229,255,0.02)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(startX, H);
+  scoreHistory.forEach((s, i) => {
+    const x = startX + i * stepX;
+    const y = H * (1 - s);
+    ctx.lineTo(x, y);
+  });
+  ctx.lineTo(startX + (n - 1) * stepX, H);
+  ctx.closePath();
+  ctx.fill();
+
+  // Line — one continuous cyan path, then overdraw anomaly segments in red
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = light ? '#0070a0' : '#00e5ff';
+  ctx.beginPath();
+  scoreHistory.forEach((s, i) => {
+    const x = startX + i * stepX;
+    const y = H * (1 - s);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Overdraw anomaly segments in red
+  ctx.strokeStyle = '#ff2d55';
+  ctx.lineWidth = 2;
+  scoreHistory.forEach((s, i) => {
+    if (s >= 0.5 && i > 0) {
+      const x0 = startX + (i - 1) * stepX, y0 = H * (1 - scoreHistory[i - 1]);
+      const x1 = startX + i * stepX,       y1 = H * (1 - s);
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x1, y1);
+      ctx.stroke();
+    }
+  });
+
+  // Dots for anomalies
+  scoreHistory.forEach((s, i) => {
+    if (s >= 0.5) {
+      const x = startX + i * stepX;
+      const y = H * (1 - s);
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = light ? '#c8243e' : '#ff2d55';
+      ctx.fill();
+      ctx.strokeStyle = light ? '#eef2f7' : '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Spindle Speed Chart (mirrors anomaly score chart style)
+// ══════════════════════════════════════════════════════════════════════════════
+const speedHistory = [];          // raw RPM values
+const speedAnomalyFlags = [];     // bool: is that sample an anomaly?
+const MAX_SPEED_HIST = 200;
+const speedCanvas = document.getElementById('speed-canvas');
+const sCtx = speedCanvas.getContext('2d');
+
+function resizeSpeedCanvas() {
+  speedCanvas.width  = speedCanvas.offsetWidth  * devicePixelRatio;
+  speedCanvas.height = speedCanvas.offsetHeight * devicePixelRatio;
+  sCtx.scale(devicePixelRatio, devicePixelRatio);
+  drawSpeedHistory();
+}
+window.addEventListener('resize', resizeSpeedCanvas);
+setTimeout(resizeSpeedCanvas, 150);
+
+function drawSpeedHistory() {
+  const W = speedCanvas.offsetWidth, H = speedCanvas.offsetHeight;
+  const light = document.body.classList.contains('light');
+  sCtx.clearRect(0, 0, W, H);
+  if (speedHistory.length < 2) return;
+
+  const minSpeed = 1800, maxSpeed = 3200;  // RPM display range
+
+  // Grid lines at 25% / 50% / 75%
+  sCtx.strokeStyle = light ? 'rgba(160,192,215,0.9)' : 'rgba(28,38,51,0.8)';
+  sCtx.lineWidth = 1;
+  [0.25, 0.5, 0.75].forEach(f => {
+    const y = H * (1 - f);
+    sCtx.beginPath(); sCtx.moveTo(0, y); sCtx.lineTo(W, y); sCtx.stroke();
+    sCtx.fillStyle = light ? 'rgba(58,88,112,0.9)' : 'rgba(58,74,90,0.7)';
+    sCtx.font = `10px 'Share Tech Mono'`;
+    const rpm = (minSpeed + f * (maxSpeed - minSpeed)).toFixed(0);
+    sCtx.fillText(rpm + ' RPM', 4, y - 3);
+  });
+
+  // Nominal speed threshold line (2500 RPM)
+  const nomFrac = (2500 - minSpeed) / (maxSpeed - minSpeed);
+  const ty = H * (1 - nomFrac);
+  sCtx.setLineDash([4, 4]);
+  sCtx.strokeStyle = light ? 'rgba(168,110,0,0.8)' : 'rgba(255,183,0,0.6)';
+  sCtx.lineWidth = 2;
+  sCtx.beginPath(); sCtx.moveTo(0, ty); sCtx.lineTo(W, ty); sCtx.stroke();
+  sCtx.fillStyle = light ? 'rgba(58,88,112,0.9)' : 'rgba(58,74,90,0.7)';
+  sCtx.font = `10px 'Share Tech Mono'`;
+  sCtx.fillText('NOMINAL', W - 65, ty - 5);
+  sCtx.setLineDash([]);
+
+  const n = speedHistory.length;
+  const stepX = W / (MAX_SPEED_HIST - 1);
+  const startX = (MAX_SPEED_HIST - n) * stepX;
+
+  const toY = rpm => H * (1 - Math.max(0, Math.min(1, (rpm - minSpeed) / (maxSpeed - minSpeed))));
+
+  // Fill area under line
+  const grad = sCtx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, light ? 'rgba(0,112,160,0.22)' : 'rgba(0,229,255,0.3)');
+  grad.addColorStop(1, light ? 'rgba(0,112,160,0.03)' : 'rgba(0,229,255,0.02)');
+  sCtx.fillStyle = grad;
+  sCtx.beginPath();
+  sCtx.moveTo(startX, H);
+  speedHistory.forEach((rpm, i) => {
+    sCtx.lineTo(startX + i * stepX, toY(rpm));
+  });
+  sCtx.lineTo(startX + (n - 1) * stepX, H);
+  sCtx.closePath();
+  sCtx.fill();
+
+  // Line — draw as one continuous path (cyan), then overdraw anomaly segments in red
+  sCtx.lineWidth = 2;
+  sCtx.strokeStyle = light ? '#0070a0' : '#00e5ff';
+  sCtx.beginPath();
+  speedHistory.forEach((rpm, i) => {
+    const x = startX + i * stepX;
+    const y = toY(rpm);
+    if (i === 0) sCtx.moveTo(x, y);
+    else sCtx.lineTo(x, y);
+  });
+  sCtx.stroke();
+
+  // Overdraw anomaly segments in red
+  sCtx.strokeStyle = '#ff2d55';
+  sCtx.lineWidth = 2;
+  speedHistory.forEach((rpm, i) => {
+    if (speedAnomalyFlags[i] && i > 0) {
+      const x0 = startX + (i - 1) * stepX, y0 = toY(speedHistory[i - 1]);
+      const x1 = startX + i * stepX,       y1 = toY(rpm);
+      sCtx.beginPath();
+      sCtx.moveTo(x0, y0);
+      sCtx.lineTo(x1, y1);
+      sCtx.stroke();
+    }
+  });
+
+  // Anomaly dots (red circles with white outline — identical to left chart)
+  speedHistory.forEach((rpm, i) => {
+    if (speedAnomalyFlags[i]) {
+      const x = startX + i * stepX;
+      const y = toY(rpm);
+      sCtx.beginPath();
+      sCtx.arc(x, y, 4, 0, Math.PI * 2);
+      sCtx.fillStyle = light ? '#c8243e' : '#ff2d55';
+      sCtx.fill();
+      sCtx.strokeStyle = light ? '#eef2f7' : '#fff';
+      sCtx.lineWidth = 1.5;
+      sCtx.stroke();
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Error Image Update
+// ══════════════════════════════════════════════════════════════════════════════
+function updateErrorImage(anomType) {
+  const svg = document.getElementById('error-visual');
+  const lbl = document.getElementById('error-image-label');
+  const t = (anomType || '').toLowerCase();
+
+  let svgContent = '';
+  let label = 'CNC FAULT DETECTED';
+
+  if (t.includes('servo_overload')) {
+    label = 'SERVO OVERLOAD';
+    svgContent = `
+      <rect x="20" y="95" width="140" height="25" rx="4" fill="#1c2633" stroke="#ff2d55" stroke-width="1.5"/>
+      <rect x="35" y="45" width="110" height="55" rx="4" fill="#0d1117" stroke="#ff2d55" stroke-width="2"/>
+      <rect x="42" y="58" width="20" height="34" rx="2" fill="rgba(255,45,85,0.3)" stroke="#ff2d55" stroke-width="1.5"/>
+      <text x="52" y="72" text-anchor="middle" font-family="monospace" font-size="9" fill="#ff2d55">Y</text>
+      <rect x="72" y="52" width="20" height="40" rx="2" fill="rgba(255,45,85,0.5)" stroke="#ff2d55" stroke-width="1.5"/>
+      <text x="82" y="72" text-anchor="middle" font-family="monospace" font-size="9" fill="#ff2d55">X</text>
+      <rect x="102" y="48" width="20" height="44" rx="2" fill="rgba(255,45,85,0.85)" stroke="#ff2d55" stroke-width="1.5"/>
+      <text x="112" y="72" text-anchor="middle" font-family="monospace" font-size="9" fill="#fff">Z</text>
+      <polygon points="112,45 107,51 117,51" fill="#ff2d55">
+        <animate attributeName="opacity" values="1;0.2;1" dur="0.6s" repeatCount="indefinite"/>
+      </polygon>
+      <polygon points="152,8 172,40 132,40" fill="none" stroke="#ff2d55" stroke-width="2.5"/>
+      <text x="152" y="32" text-anchor="middle" font-family="monospace" font-size="18" fill="#ff2d55" font-weight="bold">!</text>
+      <rect x="35" y="45" width="110" height="55" rx="4" fill="rgba(255,45,85,0.06)">
+        <animate attributeName="fill" values="rgba(255,45,85,0.06);rgba(255,45,85,0.22);rgba(255,45,85,0.06)" dur="1s" repeatCount="indefinite"/>
+      </rect>`;
+  } else if (t.includes('spindle_speed_fault')) {
+    label = 'SPINDLE SPEED FAULT';
+    svgContent = `
+      <rect x="20" y="95" width="140" height="25" rx="4" fill="#1c2633" stroke="#ff2d55" stroke-width="1.5"/>
+      <rect x="40" y="50" width="100" height="50" rx="4" fill="#0d1117" stroke="#3a4a5a" stroke-width="1.5"/>
+      <circle cx="90" cy="55" r="18" fill="#0d1117" stroke="#ff2d55" stroke-width="2"/>
+      <line x1="90" y1="55" x2="90" y2="40" stroke="#ff2d55" stroke-width="2.5" stroke-linecap="round">
+        <animateTransform attributeName="transform" type="rotate" from="0 90 55" to="360 90 55" dur="2.5s" repeatCount="indefinite"/>
+      </line>
+      <circle cx="90" cy="55" r="3" fill="#ff2d55"/>
+      <text x="90" y="82" text-anchor="middle" font-family="monospace" font-size="9" fill="#ff2d55">SPEED FAULT</text>
+      <polygon points="130,42 125,52 135,52" fill="#ff2d55">
+        <animate attributeName="opacity" values="1;0.2;1" dur="0.8s" repeatCount="indefinite"/>
+      </polygon>
+      <line x1="130" y1="30" x2="130" y2="42" stroke="#ff2d55" stroke-width="2"/>
+      <polygon points="152,8 172,40 132,40" fill="none" stroke="#ff2d55" stroke-width="2.5"/>
+      <text x="152" y="32" text-anchor="middle" font-family="monospace" font-size="18" fill="#ff2d55" font-weight="bold">!</text>`;
+  } else if (t.includes('tool_wear_trend')) {
+    label = 'TOOL WEAR TREND';
+    svgContent = `
+      <rect x="20" y="95" width="140" height="25" rx="4" fill="#1c2633" stroke="#ffb700" stroke-width="1.5"/>
+      <rect x="35" y="50" width="110" height="50" rx="4" fill="#0d1117" stroke="#ffb700" stroke-width="1.5"/>
+      <line x1="45" y1="115" x2="45" y2="58" stroke="#1c2633" stroke-width="1"/>
+      <polyline points="45,90 65,82 85,70 105,60 130,50" fill="none" stroke="#ffb700" stroke-width="2.5" stroke-linejoin="round"/>
+      <circle cx="130" cy="50" r="5" fill="#ff2d55">
+        <animate attributeName="r" values="5;7;5" dur="1s" repeatCount="indefinite"/>
+      </circle>
+      <text x="90" y="108" text-anchor="middle" font-family="monospace" font-size="9" fill="#ffb700">LOAD DRIFT ↑</text>
+      <polygon points="152,8 172,40 132,40" fill="none" stroke="#ffb700" stroke-width="2.5"/>
+      <text x="152" y="32" text-anchor="middle" font-family="monospace" font-size="18" fill="#ffb700" font-weight="bold">!</text>`;
+  } else if (t.includes('vibration_fault')) {
+    label = 'VIBRATION FAULT';
+    svgContent = `
+      <rect x="20" y="95" width="140" height="25" rx="4" fill="#1c2633" stroke="#ff2d55" stroke-width="1.5"/>
+      <rect x="35" y="45" width="110" height="55" rx="4" fill="#0d1117" stroke="#ff2d55" stroke-width="1.5">
+        <animate attributeName="x" values="35;33;37;35" dur="0.15s" repeatCount="indefinite"/>
+      </rect>
+      <circle cx="90" cy="65" r="12" fill="none" stroke="#ff2d55" stroke-width="2">
+        <animate attributeName="r" values="12;15;12" dur="0.2s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="1;0.4;1" dur="0.2s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="90" cy="65" r="4" fill="#ff2d55"/>
+      <text x="90" y="90" text-anchor="middle" font-family="monospace" font-size="9" fill="#ff2d55">VIBRATION</text>
+      <polygon points="152,8 172,40 132,40" fill="none" stroke="#ff2d55" stroke-width="2.5"/>
+      <text x="152" y="32" text-anchor="middle" font-family="monospace" font-size="18" fill="#ff2d55" font-weight="bold">!</text>`;
+  } else if (t.includes('axis_deviation')) {
+    label = 'AXIS DEVIATION';
+    svgContent = `
+      <line x1="30" y1="110" x2="150" y2="110" stroke="#1c2633" stroke-width="1.5"/>
+      <line x1="30" y1="110" x2="30" y2="20" stroke="#1c2633" stroke-width="1.5"/>
+      <polygon points="150,110 144,106 144,114" fill="#3a4a5a"/>
+      <polygon points="30,20 26,26 34,26" fill="#3a4a5a"/>
+      <text x="155" y="114" font-family="monospace" font-size="9" fill="#3a4a5a">X</text>
+      <text x="24" y="18" font-family="monospace" font-size="9" fill="#3a4a5a">Y</text>
+      <circle cx="90" cy="68" r="6" fill="none" stroke="#00e676" stroke-width="2" stroke-dasharray="3,2"/>
+      <text x="90" y="61" text-anchor="middle" font-family="monospace" font-size="8" fill="#00e676">TARGET</text>
+      <circle cx="120" cy="44" r="7" fill="rgba(255,45,85,0.4)" stroke="#ff2d55" stroke-width="2">
+        <animate attributeName="r" values="7;9;7" dur="1s" repeatCount="indefinite"/>
+      </circle>
+      <text x="127" y="38" font-family="monospace" font-size="8" fill="#ff2d55">ACTUAL</text>
+      <line x1="90" y1="68" x2="120" y2="44" stroke="#ff2d55" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <polygon points="152,8 172,40 132,40" fill="none" stroke="#ff2d55" stroke-width="2.5"/>
+      <text x="152" y="32" text-anchor="middle" font-family="monospace" font-size="18" fill="#ff2d55" font-weight="bold">!</text>`;
+  } else {
+    // Generic / none
+    label = 'CNC FAULT DETECTED';
+    svgContent = `
+      <rect x="20" y="90" width="140" height="30" rx="4" fill="#1c2633" stroke="#ff2d55" stroke-width="1.5"/>
+      <rect x="40" y="40" width="100" height="55" rx="4" fill="#0d1117" stroke="#ff2d55" stroke-width="1.5"/>
+      <rect x="78" y="20" width="24" height="40" rx="3" fill="#1c2633" stroke="#ff2d55" stroke-width="1.5"/>
+      <polygon points="84,60 90,72 96,60" fill="#ff2d55"/>
+      <line x1="90" y1="72" x2="75" y2="88" stroke="#ff2d55" stroke-width="2" stroke-dasharray="3,2" opacity="0.9">
+        <animate attributeName="opacity" values="0.9;0.2;0.9" dur="0.8s" repeatCount="indefinite"/>
+      </line>
+      <line x1="90" y1="72" x2="105" y2="88" stroke="#ff2d55" stroke-width="2" stroke-dasharray="3,2" opacity="0.9">
+        <animate attributeName="opacity" values="0.2;0.9;0.2" dur="0.8s" repeatCount="indefinite"/>
+      </line>
+      <polygon points="150,10 170,42 130,42" fill="none" stroke="#ff2d55" stroke-width="2.5"/>
+      <text x="150" y="34" text-anchor="middle" font-family="monospace" font-size="18" fill="#ff2d55" font-weight="bold">!</text>
+      <rect x="40" y="40" width="100" height="55" rx="4" fill="rgba(255,45,85,0.08)">
+        <animate attributeName="fill" values="rgba(255,45,85,0.08);rgba(255,45,85,0.25);rgba(255,45,85,0.08)" dur="1.2s" repeatCount="indefinite"/>
+      </rect>`;
+  }
+
+  svg.innerHTML = svgContent;
+  lbl.textContent = label;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Update UI
+// ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// Fault Cleared — Operator Action
+// ══════════════════════════════════════════════════════════════════════════════
+function clearFault() {
+  machinePaused = false;
+  if (faultLatchTimer) { clearTimeout(faultLatchTimer); faultLatchTimer = null; }
+
+  // Tell Python server to resume
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send('FAULT_CLEARED');
+
+  // Hide button + score-panel halted overlay
+  const btn = document.getElementById('fault-cleared-btn');
+  if (btn) btn.classList.remove('show');
+  document.getElementById('score-halted-overlay').classList.remove('show');
+
+  // Clear alert banner
+  document.getElementById('alert-banner').classList.remove('show');
+  document.getElementById('score-panel').classList.remove('danger-panel');
+
+  // Hide anomaly panel, restore fault map
+  document.getElementById('anomaly-type-panel').classList.remove('show');
+  document.getElementById('fault-map-panel').style.display = '';
+
+  // Reset score ring / verdict
+  const ringFill = document.getElementById('ring-fill');
+  ringFill.style.strokeDashoffset = 565.5;
+  ringFill.style.stroke = 'var(--ok)';
+  document.getElementById('score-num').textContent = '0.0';
+  document.getElementById('score-num').style.color = 'var(--ok)';
+  document.getElementById('verdict').textContent = 'NORMAL';
+  document.getElementById('verdict').style.color = 'var(--ok)';
+  document.getElementById('anomaly-label').textContent = 'OPERATING NORMALLY';
+  document.getElementById('anomaly-label').style.color = 'var(--ok)';
+
+  // Log event
+  const log = document.getElementById('event-log');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `<span class="log-ts">${new Date().toLocaleTimeString('en-GB',{hour12:false})}</span><span class="log-msg">✅ FAULT CLEARED by operator — machine resuming</span>`;
+  log.insertBefore(entry, log.firstChild);
+}
+
+function update(data) {
+  // ── If machine is halted, ignore incoming data completely ──
+  if (machinePaused) return;
+
+  // Python sends score as 0–100, normalize to 0–1 for all internal use
+  const score = (data.score ?? 0) / 100;
+  const isAnom = data.anomaly;
+  const anomType = data.anomaly_type;
+  const flagged = data.flagged_features || [];
+  const alertLevel = data.alert_level || 'NORMAL'; // From model thresholds
+
+  // Determine color based on alert level
+  let ringColor, scoreColor;
+  if (alertLevel === 'CRITICAL') {
+    ringColor = scoreColor = 'var(--danger)';
+  } else if (alertLevel === 'WARNING') {
+    ringColor = scoreColor = 'var(--warn)';
+  } else if (alertLevel === 'MONITOR') {
+    ringColor = scoreColor = '#FFA500'; // Orange for monitor
+  } else {
+    ringColor = scoreColor = 'var(--ok)';
+  }
+
+  // Score ring
+  const circ = 2 * Math.PI * 90;
+  const offset = circ * (1 - score);
+  const ringFill = document.getElementById('ring-fill');
+  ringFill.style.strokeDashoffset = offset;
+  ringFill.style.stroke = ringColor;
+
+  const scoreNum = document.getElementById('score-num');
+  scoreNum.textContent = (score * 100).toFixed(1);
+  scoreNum.style.color = scoreColor;
+
+  const verdict = document.getElementById('verdict');
+  const label = document.getElementById('anomaly-label');
+  
+  if (isAnom || alertLevel === 'CRITICAL' || alertLevel === 'WARNING') {
+    // Show alert state
+    let verdictText = alertLevel;
+    if (alertLevel === 'CRITICAL') {
+      verdictText = '🚨 CRITICAL!';
+    } else if (alertLevel === 'WARNING') {
+      verdictText = '⚠️ WARNING!';
+    } else if (isAnom) {
+      verdictText = 'ANOMALY!';
+    }
+    
+    verdict.textContent = verdictText;
+    verdict.style.color = scoreColor;
+    label.textContent = alertLevel === 'CRITICAL' ? 'CRITICAL FAULT' : 
+                        alertLevel === 'WARNING' ? 'WARNING DETECTED' : 
+                        'FAULT DETECTED';
+    label.style.color = scoreColor;
+    
+    // Show alert banner
+    document.getElementById('alert-banner').classList.add('show');
+    document.getElementById('anomaly-type-banner').textContent = anomType || alertLevel;
+    if (alertLevel === 'CRITICAL') {
+      document.getElementById('score-panel').classList.add('danger-panel');
+    } else {
+      document.getElementById('score-panel').classList.remove('danger-panel');
+    }
+
+    // ── FAULT LATCH: 1 s after first anomaly → halt dashboard ──────────────
+    if (!machinePaused && !faultLatchTimer) {
+      const frozenScore = (score * 100).toFixed(1);
+      const frozenLevel = alertLevel;
+      const frozenType  = anomType || alertLevel || '—';
+      faultLatchTimer = setTimeout(() => {
+        faultLatchTimer = null;
+        machinePaused   = true;
+        // Tell Python server to pause its send_loop
+        if (ws && ws.readyState === WebSocket.OPEN) ws.send('FAULT_DETECTED');
+        // Populate score-panel overlay with frozen values
+        document.getElementById('halted-score-val').textContent = frozenScore + '%';
+        document.getElementById('halted-level-val').textContent = frozenLevel;
+        document.getElementById('halted-type-val').textContent  = frozenType;
+        // Show overlay + header button
+        document.getElementById('score-halted-overlay').classList.add('show');
+        const btn = document.getElementById('fault-cleared-btn');
+        if (btn) btn.classList.add('show');
+      }, 1000);
+    }
+    
+    // Show anomaly type panel, hide fault map
+    const typePanel = document.getElementById('anomaly-type-panel');
+    typePanel.classList.add('show');
+    document.getElementById('fault-map-panel').style.display = 'none';
+    document.getElementById('anomaly-type-name').textContent = anomType || alertLevel;
+    
+    // Set description based on type and alert level
+    const at = (anomType || '').toLowerCase();
+    let description = 'Anomaly detected in CNC operation.';
+    if (alertLevel === 'CRITICAL') {
+      description = '🚨 CRITICAL: Score >95%. STOP MACHINE IMMEDIATELY — inspect for damage.';
+    } else if (alertLevel === 'WARNING') {
+      description = '⚠️ WARNING: Score 75–95%. Investigate promptly to prevent further damage.';
+    } else if (at.includes('servo_overload')) {
+      description = 'Servo axis overload — excessive load on Y/X/Z. Check for tool binding, chip jamming, or material hardness variation.';
+    } else if (at.includes('spindle_speed_fault')) {
+      description = 'Spindle speed outside 2200–2800 RPM band. Check motor drive, belt tension, and encoder feedback.';
+    } else if (at.includes('tool_wear_trend')) {
+      description = 'Gradual load drift detected — indicates progressive tool wear. Schedule tool change before next operation.';
+    } else if (at.includes('vibration_fault')) {
+      description = 'Abnormal vibration in position feedback. Check spindle bearing, tool runout, and workpiece clamping.';
+    } else if (at.includes('axis_deviation')) {
+      description = 'Position deviation beyond tolerance. Check ballscrew backlash, encoder cable, and servo gain settings.';
+    }
+    document.getElementById('anomaly-description').textContent = description;
+    
+    // Update error SVG image based on anomaly type
+    updateErrorImage(anomType);
+    
+    // Show flagged features
+    const flagList = document.getElementById('flagged-features-list');
+    flagList.innerHTML = '';
+    flagged.forEach(f => {
+      const tag = document.createElement('div');
+      tag.className = `flagged-tag ${f.severity}`;
+      tag.textContent = `${f.feature.toUpperCase()}: ${f.value.toFixed(1)}`;
+      flagList.appendChild(tag);
+    });
+    
+  } else {
+    // Cancel pending latch if anomaly resolved before timer fires
+    if (faultLatchTimer) { clearTimeout(faultLatchTimer); faultLatchTimer = null; }
+    verdict.textContent = 'NORMAL';
+    verdict.style.color = 'var(--ok)';
+    label.textContent = 'OPERATING NORMALLY';
+    label.style.color = 'var(--ok)';
+    document.getElementById('alert-banner').classList.remove('show');
+    document.getElementById('score-panel').classList.remove('danger-panel');
+    document.getElementById('anomaly-type-panel').classList.remove('show');
+    document.getElementById('fault-map-panel').style.display = '';
+  }
+
+  // Stats
+  document.getElementById('s-total').textContent = data.total?.toLocaleString() ?? '—';
+  document.getElementById('s-anomalies').textContent = data.anomalies?.toLocaleString() ?? '—';
+  document.getElementById('s-rate').textContent = (data.anomaly_rate ?? 0).toFixed(2) + '%';
+
+  // Clear all flagged states first
+  document.querySelectorAll('.axis-row').forEach(row => row.classList.remove('flagged'));
+
+  // Axis bars with flagging
+  // New dataset uses σ (sigma) units: normal range ≈ ±4σ, anomaly can reach ±26σ
+  // Scale: |v| / 4 * 100 → 4σ fills the bar; clamp at 100%
+  const f = data.features ?? {};
+  const axes = [
+    ['yload', 'Yload', f.Yload],
+    ['xload', 'Xload', f.Xload],
+    ['zload', 'Zload', f.Zload],
+    ['zact',  'Zact',  f.Zact],
+    ['xact',  'Xact',  f.Xact],
+    ['yact',  'Yact',  f.Yact],
+  ];
+  
+  axes.forEach(([id, fname, val]) => {
+    const v   = val ?? 0;
+    const pct = Math.min(Math.abs(v) / 4 * 100, 100);  // ±4σ = full bar
+    const fill = document.getElementById(`ax-${id}`);
+    const txt  = document.getElementById(`av-${id}`);
+    const row  = document.getElementById(`row-${id}`);
+    
+    if (fill) {
+      fill.style.width      = pct + '%';
+      fill.style.background = pct > 75 ? 'var(--danger)' : pct > 50 ? 'var(--warn)' : 'var(--ok)';
+    }
+    if (txt) txt.textContent = v.toFixed(3);   // 3 dp to show σ precision
+    
+    // Highlight if flagged
+    if (flagged.some(f => f.feature === fname)) {
+      row.classList.add('flagged');
+    }
+  });
+
+  // Speed
+  if (f.speed != null) {
+    document.getElementById('speed-num').textContent = f.speed.toFixed(0);
+    // Update speed color based on anomaly
+    document.getElementById('speed-num').style.color = isAnom ? 'var(--danger)' : 'var(--accent)';
+    // Push to speed history chart
+    speedHistory.push(f.speed);
+    speedAnomalyFlags.push(isAnom);
+    if (speedHistory.length > MAX_SPEED_HIST) { speedHistory.shift(); speedAnomalyFlags.shift(); }
+    drawSpeedHistory();
+  }
+
+  // Score history
+  scoreHistory.push(score);
+  if (scoreHistory.length > MAX_HIST) scoreHistory.shift();
+  drawHistory();
+
+  // Update fault map
+  updateFaultMapStatus(data);
+
+  // Update tool position on machine SVG
+  if (f.Xact != null && f.Yact != null) {
+    updateToolPosition(f.Xact, f.Yact, f.Zact);
+  }
+
+  // Event log
+  addLog(data.ts, isAnom, data.score ?? 0, anomType, data.tool_id);
+}
+
+function addLog(ts, isAnom, score, anomType, toolId) {
+  const log = document.getElementById('event-log');
+  const t = ts ? new Date(ts).toLocaleTimeString('en-GB', {hour12:false}) : '--:--:--';
+  const entry = document.createElement('div');
+  entry.className = 'log-entry' + (isAnom ? ' anom' : '');
+  
+  let msg = isAnom ? '🔴 ANOMALY  ' : '✅ normal  ';
+  msg += `score=${score.toFixed(1)}%`;
+  if (toolId) msg += `  T${toolId}`;
+  
+  entry.innerHTML = `
+    <span class="log-ts">${t}</span>
+    <span class="log-msg">${msg}</span>
+    ${isAnom && anomType ? `<span class="log-type">${anomType}</span>` : ''}
+  `;
+  
+  log.prepend(entry);
+  if (log.children.length > 100) log.lastChild.remove();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Uptime
+// ══════════════════════════════════════════════════════════════════════════════
+function startUptime() {
+  startTime = Date.now();
+  clearInterval(uptimeTimer);
+  uptimeTimer = setInterval(() => {
+    const s = Math.floor((Date.now() - startTime) / 1000);
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+    document.getElementById('s-uptime').textContent =
+      h > 0 ? `${h}h${m}m` : m > 0 ? `${m}m${ss}s` : `${ss}s`;
+  }, 1000);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// WebSocket Connection
+// ══════════════════════════════════════════════════════════════════════════════
+function setConn(state, text) {
+  const dot = document.getElementById('conn-dot');
+  dot.className = state;
+  document.getElementById('conn-text').textContent = text;
+  // Update machine visual mode
+  const mode = state === 'live' ? 'live' : state === 'demo' ? 'demo' : 'disconnected';
+  setMachineMode(mode, text);
+}
+
+function setMachineMode(mode, label) {
+  const svg = document.getElementById('cnc-machine-svg');
+  const overlay = document.getElementById('machine-mode-overlay');
+  const banner = document.getElementById('machine-conn-banner');
+  const badge = document.getElementById('protocol-badge');
+
+  // Remove existing mode classes
+  svg.classList.remove('mode-live', 'mode-demo', 'mode-disconnected');
+  overlay.classList.remove('mode-live', 'mode-demo', 'mode-disconnected');
+  banner.classList.remove('banner-live', 'banner-demo', 'banner-disconnected');
+  badge.classList.remove('live', 'demo');
+
+  svg.classList.add(`mode-${mode}`);
+  overlay.classList.add(`mode-${mode}`);
+
+  if (mode === 'live') {
+    overlay.textContent = '● LIVE';
+    banner.textContent = 'LIVE — REAL MACHINE';
+    banner.classList.add('banner-live');
+    badge.textContent = 'MTConnect';
+    badge.classList.add('live');
+    // Show tool position indicator
+    ['tool-pos-dot','tool-pos-h','tool-pos-v'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.setAttribute('opacity', '0.8');
+    });
+  } else if (mode === 'demo') {
+    overlay.textContent = '◈ DEMO';
+    banner.textContent = 'DEMO — SYNTHETIC';
+    banner.classList.add('banner-demo');
+    badge.textContent = 'Simulated';
+    badge.classList.add('demo');
+    // Show tool position in demo too
+    ['tool-pos-dot','tool-pos-h','tool-pos-v'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.setAttribute('opacity', '0.5');
+    });
+  } else {
+    overlay.textContent = '○ OFFLINE';
+    banner.textContent = 'DISCONNECTED';
+    banner.classList.add('banner-disconnected');
+    badge.textContent = '—';
+    // Hide tool position indicator
+    ['tool-pos-dot','tool-pos-h','tool-pos-v'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.setAttribute('opacity', '0');
+    });
+  }
+}
+
+// Update tool crosshair position on SVG based on real axis data
+function updateToolPosition(xact, yact, zact) {
+  // Map real machine coords to SVG coords
+  // Assumes X range: -1200 to 0 mm → SVG x: 145 to 400
+  // Assumes Y range: -400 to 0 mm → SVG y: 80 to 232
+  const svgXMin = 145, svgXMax = 400;
+  const svgYMin = 80, svgYMax = 230;
+  const machXMin = -1200, machXMax = 0;
+  const machYMin = -400, machYMax = 0;
+
+  const svgX = svgXMin + ((xact - machXMin) / (machXMax - machXMin)) * (svgXMax - svgXMin);
+  const svgY = svgYMin + ((yact - machYMin) / (machYMax - machYMin)) * (svgYMax - svgYMin);
+
+  const clampedX = Math.max(svgXMin, Math.min(svgXMax, svgX));
+  const clampedY = Math.max(svgYMin, Math.min(svgYMax, svgY));
+
+  const dot = document.getElementById('tool-pos-dot');
+  const h = document.getElementById('tool-pos-h');
+  const v = document.getElementById('tool-pos-v');
+  const offset = 5;
+
+  if (dot) { dot.setAttribute('cx', clampedX); dot.setAttribute('cy', clampedY); }
+  if (h) { h.setAttribute('x1', clampedX - 10); h.setAttribute('x2', clampedX + 10); h.setAttribute('y1', clampedY); h.setAttribute('y2', clampedY); }
+  if (v) { v.setAttribute('x1', clampedX); v.setAttribute('x2', clampedX); v.setAttribute('y1', clampedY - 10); v.setAttribute('y2', clampedY + 10); }
+
+  // Also update spindle SVG position (Z carriage Y position)
+  const spindleSvgY = svgYMin + ((Math.min(0, zact || 0) / -400)) * (svgYMax - svgYMin);
+  const zClamped = Math.max(svgYMin + 40, Math.min(svgYMax - 20, spindleSvgY + 80));
+}
+
+
+
+function connect() {
+  if (ws) { ws.close(); ws = null; }
+  clearDemo();
+  
+  const url = 'ws://' + document.getElementById('ws-url').value.trim();
+  setConn('', 'CONNECTING…');
+  
+  try {
+    ws = new WebSocket(url);
+    ws.onopen  = () => {
+      // Detect protocol from URL hints
+      const urlVal = document.getElementById('ws-url').value.trim().toLowerCase();
+      let protocol = 'MTConnect';
+      if (urlVal.includes('opc') || urlVal.includes('4840')) protocol = 'OPC-UA';
+      else if (urlVal.includes('modbus') || urlVal.includes('502')) protocol = 'Modbus';
+      else if (urlVal.includes('serial') || urlVal.includes('com')) protocol = 'Serial';
+      
+      const badge = document.getElementById('protocol-badge');
+      if (badge) { badge.textContent = protocol; badge.classList.add('live'); }
+
+      setConn('live', `LIVE — ${protocol}`);
+      startUptime();
+      console.log('✅ Connected to Gradient Boosting pipeline');
+    };
+    ws.onmessage = e => {
+      try {
+        update(JSON.parse(e.data));
+      } catch (err) {
+        console.error('Parse error:', err);
+      }
+    };
+    ws.onerror = () => setConn('error', 'CONNECTION ERROR');
+    ws.onclose = () => { setConn('', 'DISCONNECTED'); setMachineMode('disconnected'); };
+  } catch(e) {
+    setConn('error', 'INVALID URL');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Demo Mode
+// ══════════════════════════════════════════════════════════════════════════════
+let demoT = 0;
+let demoTotal = 0;
+let demoAnom = 0;
+
+function clearDemo() {
+  if (demoTimer) { clearInterval(demoTimer); demoTimer = null; }
+}
+
+function startDemo() {
+  if (ws) { ws.close(); ws = null; }
+  clearDemo();
+  setConn('demo', 'DEMO — Synthetic Data');
+  startUptime();
+  demoT = 0; demoTotal = 0; demoAnom = 0;
+
+  demoTimer = setInterval(() => {
+    demoT += 1;
+    const noise = () => (Math.random() - 0.5) * 0.08;
+    
+    // Determine anomaly type based on time cycle
+    const cycle = Math.floor(demoT) % 60;
+    let isAnom = false;
+    let anomType = null;
+    const rnd = (min, max) => min + Math.random() * (max - min);
+    let baseScore = rnd(1, 18); // Realistic normal: 1–18%
+    
+    // Realistic CNC spindle speed: 2300–2600 RPM with natural sine variation
+    let speed = 2450 + 80 * Math.sin(demoT * 0.15) + rnd(-60, 60);
+    // Realistic σ-unit values matching Enhanced_Preprocessed dataset
+    // Normal range: ±1σ with small variation; anomaly: >3σ
+    let yload = rnd(-0.3, 0.1) + noise() * 0.5;   // normal ≈ -0.1σ
+    let xload = rnd(-0.3, 0.1) + noise() * 0.5;   // normal ≈ -0.1σ
+    let zload = rnd(-0.1, 0.1) + noise() * 0.3;   // normal ≈ 0σ
+    let xact  = rnd( 0.0, 0.2) + noise() * 0.3;   // normal ≈ 0.12σ
+    let yact  = rnd( 0.0, 0.01)+ noise() * 0.1;   // normal ≈ 0σ
+    let flagged = [];
+    
+    // Cycle through all 5 real anomaly types from dataset
+    if (cycle < 6) {
+      // servo_overload
+      yload = rnd(4.5, 8.0); xload = rnd(4.0, 7.5); zload = rnd(5.0, 9.0);
+      isAnom = true; baseScore = rnd(78, 99);
+      anomType = 'servo_overload';
+      flagged = [
+        {feature: 'Yload', value: yload, severity: 'high'},
+        {feature: 'Xload', value: xload, severity: 'high'},
+        {feature: 'Zload', value: zload, severity: 'high'},
+      ];
+    } else if (cycle >= 12 && cycle < 18) {
+      // spindle_speed_fault
+      speed = rnd(1542, 2100);
+      isAnom = true; baseScore = rnd(65, 92);
+      anomType = 'spindle_speed_fault';
+      flagged = [{feature: 'speed', value: speed, severity: 'high'}];
+    } else if (cycle >= 24 && cycle < 30) {
+      // tool_wear_trend — gradual Zload drift
+      zload = rnd(2.5, 4.5); yload = rnd(2.0, 3.5);
+      isAnom = true; baseScore = rnd(55, 80);
+      anomType = 'tool_wear_trend';
+      flagged = [
+        {feature: 'Zload', value: zload, severity: 'medium'},
+        {feature: 'Yload', value: yload, severity: 'medium'},
+      ];
+    } else if (cycle >= 36 && cycle < 42) {
+      // vibration_fault — erratic position feedback
+      xact = rnd(3.0, 5.5); yact = rnd(-4.0, -2.5);
+      isAnom = true; baseScore = rnd(60, 88);
+      anomType = 'vibration_fault';
+      flagged = [
+        {feature: 'Xact', value: xact, severity: 'high'},
+        {feature: 'Yact', value: yact, severity: 'high'},
+      ];
+    } else if (cycle >= 48 && cycle < 54) {
+      // axis_deviation
+      xact = rnd(2.5, 4.0); yact = rnd(-3.0, -2.0); xload = rnd(2.5, 4.0);
+      isAnom = true; baseScore = rnd(58, 85);
+      anomType = 'axis_deviation';
+      flagged = [
+        {feature: 'Xact',  value: xact,  severity: 'medium'},
+        {feature: 'Yact',  value: yact,  severity: 'medium'},
+        {feature: 'Xload', value: xload, severity: 'medium'},
+      ];
+    }
+    
+    demoTotal++;
+    if (isAnom) demoAnom++;
+    
+    // Determine alert level based on score (0–100 scale)
+    let alertLevel = 'NORMAL';
+    if (baseScore >= 95) {
+      alertLevel = 'CRITICAL';
+    } else if (baseScore >= 75) {
+      alertLevel = 'WARNING';
+    } else if (baseScore >= 50) {
+      alertLevel = 'MONITOR';
+    }
+
+    update({
+      ts: new Date().toISOString(),
+      anomaly: isAnom,
+      score: baseScore,
+      alert_level: alertLevel,
+      anomaly_type: anomType,
+      anomaly_rate: demoAnom / demoTotal * 100,
+      total: demoTotal,
+      anomalies: demoAnom,
+      flagged_features: flagged,
+      features: {
+        Yload: yload,
+        Xload: xload,
+        Zload: zload,
+        Zact: rnd(-0.1, 0.1) + noise() * 0.2,
+        Xact: xact,
+        Yact: yact,
+        speed: speed,
+      }
+    });
+  }, 6000); // 6 second sampling rate (matches model production settings)
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CNC Visual Fault Map
+// ══════════════════════════════════════════════════════════════════════════════
+const partData = {
+  table: {
+    name: 'MACHINE TABLE',
+    description: 'Main structural base providing X-axis travel and workpiece support.',
+    metrics: [
+      { lbl: 'X POSITION', id: 'fm-xpos', unit: 'mm', val: '—' },
+      { lbl: 'VIBRATION', id: 'fm-vibration', unit: 'µm', val: '—' },
+      { lbl: 'TEMP', id: 'fm-table-temp', unit: '°C', val: '38.2' },
+      { lbl: 'STATUS', id: 'fm-table-status', unit: '', val: 'NORMAL' }
+    ],
+    status: 'ok'
+  },
+  column: {
+    name: 'COLUMN / GANTRY',
+    description: 'Vertical column supporting Y-axis carriage movement.',
+    metrics: [
+      { lbl: 'Y POSITION', id: 'fm-ypos', unit: 'mm', val: '—' },
+      { lbl: 'LEVELNESS', id: 'fm-level', unit: 'arcmin', val: '0.02' },
+      { lbl: 'TEMP', id: 'fm-col-temp', unit: '°C', val: '39.5' },
+      { lbl: 'STATUS', id: 'fm-col-status', unit: '', val: 'NORMAL' }
+    ],
+    status: 'ok'
+  },
+  zaxis: {
+    name: 'Z-AXIS ASSEMBLY',
+    description: 'Vertical spindle travel axis with ballscrew drive.',
+    metrics: [
+      { lbl: 'Z POSITION', id: 'fm-zpos', unit: 'mm', val: '—' },
+      { lbl: 'Z LOAD', id: 'fm-zload', unit: '%', val: '—' },
+      { lbl: 'BACKLASH', id: 'fm-backlash', unit: 'µm', val: '1.8' },
+      { lbl: 'STATUS', id: 'fm-z-status', unit: '', val: 'NORMAL' }
+    ],
+    status: 'ok'
+  },
+  spindle: {
+    name: 'SPINDLE',
+    description: 'High-speed rotating assembly with tool holder and motor.',
+    metrics: [
+      { lbl: 'SPEED', id: 'fm-speed', unit: 'RPM', val: '—' },
+      { lbl: 'TORQUE', id: 'fm-torque', unit: 'Nm', val: '—' },
+      { lbl: 'BEARING TEMP', id: 'fm-spindle-temp', unit: '°C', val: '51.3' },
+      { lbl: 'STATUS', id: 'fm-spindle-status', unit: '', val: 'NORMAL' }
+    ],
+    status: 'ok'
+  },
+  xmotor: {
+    name: 'X-AXIS DRIVE',
+    description: 'Servo motor and drive unit for X-axis table movement.',
+    metrics: [
+      { lbl: 'X LOAD', id: 'fm-xload', unit: '%', val: '—' },
+      { lbl: 'CURRENT', id: 'fm-xcurrent', unit: 'A', val: '3.2' },
+      { lbl: 'MOTOR TEMP', id: 'fm-xtemp', unit: '°C', val: '44.1' },
+      { lbl: 'STATUS', id: 'fm-x-status', unit: '', val: 'NORMAL' }
+    ],
+    status: 'ok'
+  },
+  coolant: {
+    name: 'COOLANT SYSTEM',
+    description: 'Flood coolant pump and reservoir for tool and workpiece cooling.',
+    metrics: [
+      { lbl: 'FLOW RATE', id: 'fm-flow', unit: 'L/min', val: '4.2' },
+      { lbl: 'LEVEL', id: 'fm-level-pct', unit: '%', val: '28' },
+      { lbl: 'COOLANT TEMP', id: 'fm-coolant-temp', unit: '°C', val: '22.8' },
+      { lbl: 'STATUS', id: 'fm-coolant-status', unit: '', val: 'LOW LEVEL' }
+    ],
+    status: 'warn'
+  },
+  control: {
+    name: 'CONTROL CABINET',
+    description: 'CNC controller, servo drives, and power electronics.',
+    metrics: [
+      { lbl: 'CPU LOAD', id: 'fm-cpu', unit: '%', val: '42' },
+      { lbl: 'BUS VOLTAGE', id: 'fm-voltage', unit: 'V', val: '398' },
+      { lbl: 'CABINET TEMP', id: 'fm-ctrl-temp', unit: '°C', val: '35.6' },
+      { lbl: 'STATUS', id: 'fm-ctrl-status', unit: '', val: 'NORMAL' }
+    ],
+    status: 'ok'
+  },
+  workpiece: {
+    name: 'WORK SURFACE',
+    description: 'T-slot table surface and workholding area.',
+    metrics: [
+      { lbl: 'SURFACE TEMP', id: 'fm-surf-temp', unit: '°C', val: '24.1' },
+      { lbl: 'FLATNESS', id: 'fm-flatness', unit: 'µm', val: '3.2' },
+      { lbl: 'CLAMP FORCE', id: 'fm-clamp', unit: 'N', val: '850' },
+      { lbl: 'STATUS', id: 'fm-surf-status', unit: '', val: 'NORMAL' }
+    ],
+    status: 'ok'
+  }
+};
+
+let selectedPart = null;
+
+function inspectPart(partId) {
+  selectedPart = partId;
+  const part = partData[partId];
+  if (!part) return;
+
+  // Highlight selected
+  document.querySelectorAll('.cnc-part').forEach(el => el.style.outline = '');
+  const el = document.getElementById(`part-${partId}`);
+  if (el) {
+    el.querySelectorAll('.part-hit').forEach(h => {
+      h.style.fill = 'rgba(0,229,255,0.1)';
+      h.style.stroke = 'var(--accent)';
+    });
+    setTimeout(() => {
+      if (selectedPart === partId) return;
+      el.querySelectorAll('.part-hit').forEach(h => {
+        h.style.fill = '';
+        h.style.stroke = '';
+      });
+    }, 100);
+  }
+
+  // De-highlight others
+  document.querySelectorAll('.cnc-part').forEach(el2 => {
+    if (el2.id !== `part-${partId}`) {
+      el2.querySelectorAll('.part-hit').forEach(h => {
+        h.style.fill = '';
+        h.style.stroke = '';
+      });
+    }
+  });
+
+  const statusClass = part.status === 'ok' ? 'ok' : part.status === 'warn' ? 'warn' : 'error';
+  const statusText = part.status === 'ok' ? 'NORMAL' : part.status === 'warn' ? 'WARNING' : 'ERROR';
+
+  let metricsHtml = part.metrics.map(m => {
+    const isVal = m.val !== '—';
+    const isDanger = m.val === 'LOW LEVEL' || m.val === 'ERROR' || m.val === 'FAULT';
+    const isWarn = m.val === 'WARNING' || m.val === 'DEGRADED';
+    const valClass = isDanger ? 'danger' : isWarn ? 'warn' : '';
+    return `<div class="detail-metric">
+      <span class="detail-metric-lbl">${m.lbl}</span>
+      <span class="detail-metric-val ${valClass}" id="${m.id}">${m.val}${m.unit && isVal ? ' <span style="font-size:10px;color:var(--dim)">' + m.unit + '</span>' : ''}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('detail-content').innerHTML = `
+    <div class="detail-part-name">${part.name}</div>
+    <div class="detail-status-badge ${statusClass}">${statusText}</div>
+    <div style="font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:12px;line-height:1.5">${part.description}</div>
+    ${metricsHtml}
+  `;
+
+  // Update live values from current data
+  updateFaultMapDetail();
+}
+
+let lastFaultData = null;
+
+function updateFaultMapDetail() {
+  if (!lastFaultData || !selectedPart) return;
+  const f = lastFaultData.features ?? {};
+  const isAnom = lastFaultData.anomaly;
+  const flagged = lastFaultData.flagged_features || [];
+
+  const updates = {
+    'fm-xpos': f.Xact != null ? f.Xact.toFixed(2) + ' <span style="font-size:10px;color:var(--dim)">mm</span>' : '—',
+    'fm-ypos': f.Yact != null ? f.Yact.toFixed(2) + ' <span style="font-size:10px;color:var(--dim)">mm</span>' : '—',
+    'fm-zpos': f.Zact != null ? f.Zact.toFixed(2) + ' <span style="font-size:10px;color:var(--dim)">mm</span>' : '—',
+    'fm-zload': f.Zload != null ? f.Zload.toFixed(1) + ' <span style="font-size:10px;color:var(--dim)">%</span>' : '—',
+    'fm-speed': f.speed != null ? f.speed.toFixed(0) + ' <span style="font-size:10px;color:var(--dim)">RPM</span>' : '—',
+    'fm-torque': f.speed != null ? (f.speed / 150).toFixed(1) + ' <span style="font-size:10px;color:var(--dim)">Nm</span>' : '—',
+    'fm-xload': f.Xload != null ? f.Xload.toFixed(1) + ' <span style="font-size:10px;color:var(--dim)">%</span>' : '—',
+  };
+
+  Object.entries(updates).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = val;
+  });
+}
+
+function updateFaultMapStatus(data) {
+  lastFaultData = data;
+  const flagged = data.flagged_features || [];
+  const isAnom = data.anomaly;
+  const anomType = data.anomaly_type || '';
+
+  // Reset all to ok, then apply based on anomaly data
+  const statusMap = {
+    table: 'ok', column: 'ok', zaxis: 'ok', spindle: 'ok',
+    xmotor: 'ok', coolant: 'warn', control: 'ok', workpiece: 'ok'
+  };
+
+  if (isAnom) {
+    flagged.forEach(f => {
+      const feat = f.feature;
+      if (feat === 'Xload' || feat === 'Xact') statusMap.xmotor = f.severity === 'high' ? 'error' : 'warn';
+      if (feat === 'Yload' || feat === 'Yact') statusMap.column = f.severity === 'high' ? 'error' : 'warn';
+      if (feat === 'Zload' || feat === 'Zact') statusMap.zaxis = f.severity === 'high' ? 'error' : 'warn';
+      if (feat === 'speed') statusMap.spindle = f.severity === 'high' ? 'error' : 'warn';
+    });
+    const at2 = anomType.toLowerCase();
+    if (at2.includes('servo_overload')) {
+      statusMap.spindle = 'error';
+      statusMap.xmotor  = statusMap.xmotor === 'ok' ? 'warn' : statusMap.xmotor;
+      statusMap.column  = statusMap.column  === 'ok' ? 'warn' : statusMap.column;
+    }
+    if (at2.includes('spindle_speed_fault')) {
+      statusMap.spindle = 'error';
+    }
+    if (at2.includes('tool_wear_trend')) {
+      statusMap.spindle  = statusMap.spindle === 'ok' ? 'warn' : statusMap.spindle;
+      statusMap.workpiece = 'warn';
+    }
+    if (at2.includes('vibration_fault')) {
+      statusMap.spindle   = 'error';
+      statusMap.zaxis     = statusMap.zaxis === 'ok' ? 'warn' : statusMap.zaxis;
+      statusMap.workpiece = 'warn';
+    }
+    if (at2.includes('axis_deviation')) {
+      statusMap.table    = 'error';
+      statusMap.workpiece = 'warn';
+    }
+  }
+
+  // Apply status classes to SVG parts
+  Object.entries(statusMap).forEach(([partId, status]) => {
+    const el = document.getElementById(`part-${partId}`);
+    if (!el) return;
+    el.className.baseVal = `cnc-part status-${status}`;
+    partData[partId].status = status;
+  });
+
+  updateFaultMapDetail();
+}
+
+
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    console.log('Dashboard loaded. Click "Demo Mode" or enter WebSocket URL and click "Connect"');
+  }, 500);
+});
+</script>
+</body>
+</html>
